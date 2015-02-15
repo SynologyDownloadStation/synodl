@@ -6,8 +6,8 @@ Command-line client for Synology's DownloadStation
 Create a configuration file `.synodl` in your home directory with these entries:
 
 ```
-user = YOURNAME                                                                  
-password = YOURPASSWORD                                                          
+user = YOURNAME
+password = YOURPASSWORD
 url = https://YOUR_DEVICE_ADDRESS:5001/
 ```
 
