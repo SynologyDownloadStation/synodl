@@ -331,7 +331,7 @@ curl_do(const char *url, void *cb_arg, struct string *st)
 }
 
 int
-login(const char *base, struct session *s, const char *user, const char *pw)
+syno_login(const char *base, struct session *s, const char *usr, const char *pw)
 {
 	char url[1024];
 	struct string st;
@@ -342,7 +342,7 @@ login(const char *base, struct session *s, const char *user, const char *pw)
 
 	snprintf(url, sizeof(url), "%s/webapi/auth.cgi?api=SYNO.API.Auth"
 		"&version=2&method=login&account=%s&passwd=%s"
-		"&session=DownloadStation&format=sid", base, user, pw);
+		"&session=DownloadStation&format=sid", base, usr, pw);
 
 	if (curl_do(url, s, &st) != 0)
 	{
@@ -364,7 +364,7 @@ login(const char *base, struct session *s, const char *user, const char *pw)
 }
 
 int
-logout(const char *base, struct session *s)
+syno_logout(const char *base, struct session *s)
 {
 	char url[1024];
 	struct string st;
@@ -386,7 +386,7 @@ logout(const char *base, struct session *s)
 }
 
 int
-info(const char *base, struct session *s)
+syno_info(const char *base, struct session *s)
 {
 	char url[1024];
 	int res;
@@ -412,7 +412,7 @@ info(const char *base, struct session *s)
 }
 
 int
-download(const char *base, struct session *s, const char *dl_url)
+syno_download(const char *base, struct session *s, const char *dl_url)
 {
 	char url[1024], *esc;
 	int res;

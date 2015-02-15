@@ -26,10 +26,10 @@ struct session
 	char sid[24];
 };
 
-int login(const char *base, struct session *s, const char *u, const char *pw);
-int info(const char *base, struct session *s);
-int download(const char *base, struct session *s, const char *dl_url);
-int logout(const char *base, struct session *s);
+int syno_login(const char *b, struct session *s, const char *u, const char *pw);
+int syno_info(const char *base, struct session *s);
+int syno_download(const char *base, struct session *s, const char *dl_url);
+int syno_logout(const char *base, struct session *s);
 int syno_pause(const char *base, struct session *s, const char *ids);
 int syno_resume(const char *base, struct session *s, const char *ids);
 

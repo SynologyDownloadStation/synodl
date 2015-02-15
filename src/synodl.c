@@ -25,7 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "config.h"
 #include "cfg.h"
-#include "http.h"
+#include "syno.h"
 
 void help()
 {
@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 
 	memset(&s, 0, sizeof(struct session));
 
-	if (login(config.url, &s, config.user, config.pw) != 0)
+	if (syno_login(config.url, &s, config.user, config.pw) != 0)
 	{
 		return EXIT_FAILURE;
 	}
@@ -110,7 +110,7 @@ int main(int argc, char **argv)
 	if (optind < argc)
 	{
 		url = argv[optind];
-		download(config.url, &s, url);
+		syno_download(config.url, &s, url);
 	}
 	else
 	{
@@ -122,10 +122,10 @@ int main(int argc, char **argv)
 		{
 			syno_resume(config.url, &s, resume);
 		}
-		info(config.url, &s);
+		syno_info(config.url, &s);
 	}
 
-	logout(config.url, &s);
+	syno_logout(config.url, &s);
 
 	return EXIT_SUCCESS;
 }
