@@ -115,7 +115,7 @@ static void
 json_load_torrents(json_object *obj, struct session *s)
 {
 	json_object *data, *tasks, *task, *tmp, *additional, *transfer;
-	const char *status;
+	const char *status, *id;
 	int i, dl, ul, size, have, sent;
 
 	data = json_object_object_get(obj, "data");
@@ -143,8 +143,11 @@ json_load_torrents(json_object *obj, struct session *s)
 	{
 		task = json_object_array_get_idx(tasks, i);
 
+		tmp = json_object_object_get(task, "id");
+		id = json_object_get_string(tmp);
+
 		tmp = json_object_object_get(task, "title");
-		printf("* %s\n", json_object_get_string(tmp));
+		printf("* [%s] %s\n", id, json_object_get_string(tmp));
 
 		tmp = json_object_object_get(task, "status");
 		status = json_object_get_string(tmp);
@@ -242,7 +245,7 @@ torrents_receive(struct string *st)
 }
 
 static int
-download_added(struct string *st)
+dump_reply(struct string *st)
 {
 	json_tokener *tok;
 	json_object *obj;
@@ -429,7 +432,59 @@ download(const char *base, struct session *s, const char *dl_url)
 		return 1;
 	}
 
-	download_added(&st);
+	dump_reply(&st);
+
+	free_string(&st);
+	return res;
+}
+
+int
+syno_pause(const char *base, struct session *s, const char *ids)
+{
+	char url[1024];
+	int res;
+	struct string st;
+
+	init_string(&st);
+
+	snprintf(url, sizeof(url), "%s/webapi/DownloadStation/task.cgi?"
+				"api=SYNO.DownloadStation.Task&version=1"
+				"&method=pause&id=%s&_sid=%s", base, ids,
+				s->sid);
+
+	if (curl_do(url, s, &st) != 0)
+	{
+		free_string(&st);
+		return 1;
+	}
+
+	dump_reply(&st);
+
+	free_string(&st);
+	return res;
+}
+
+int
+syno_resume(const char *base, struct session *s, const char *ids)
+{
+	char url[1024];
+	int res;
+	struct string st;
+
+	init_string(&st);
+
+	snprintf(url, sizeof(url), "%s/webapi/DownloadStation/task.cgi?"
+				"api=SYNO.DownloadStation.Task&version=1"
+				"&method=resume&id=%s&_sid=%s", base, ids,
+				s->sid);
+
+	if (curl_do(url, s, &st) != 0)
+	{
+		free_string(&st);
+		return 1;
+	}
+
+	dump_reply(&st);
 
 	free_string(&st);
 	return res;

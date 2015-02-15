@@ -34,6 +34,8 @@ void help()
 	printf("otherwise the URL is added as a download task.\n\n");
 	printf("  -h, --help           Show this help\n");
 	printf("      --dump           Show current downloads (default)\n");
+	printf("  -p, --pause=ID       Pause download\n");
+	printf("  -r, --resume=ID      Resume download\n");
 	printf("\n");
 	printf("This is %s.\n", PACKAGE_STRING);
 	printf("Report bugs at https://github.com/cockroach/synodl/\n");
@@ -42,20 +44,26 @@ void help()
 int main(int argc, char **argv)
 {
 	int c, option_idx;
-	const char *url;
+	const char *url, *pause, *resume;
 	struct cfg config;
 	struct session s;
 
 	struct option long_options[] =
 	{
-		{"help", no_argument, 0, 'h' },
-		{"dump", no_argument, 0, 0 },
-		{0,      0,           0, 0 }
+		{"help",   no_argument,       0, 'h' },
+		{"dump",   no_argument,       0,  0 },
+		{"pause",  required_argument, 0, 'p' },
+		{"resume", required_argument, 0, 'r' },
+		{0,        0,                 0,  0 }
 	};
+
+	memset(&config, 0, sizeof(struct cfg));
+	pause = "";
+	resume = "";
 
 	while (1)
 	{
-		c = getopt_long(argc, argv, "h", long_options, &option_idx);
+		c = getopt_long(argc, argv, "hp:r:", long_options, &option_idx);
 
 		if (c == -1)
 		{
@@ -74,13 +82,17 @@ int main(int argc, char **argv)
 		case 'h':
 			help();
 			return EXIT_SUCCESS;
+		case 'p':
+			pause = optarg;
+			break;
+		case 'r':
+			resume = optarg;
+			break;
 		default:
 			help();
 			return EXIT_FAILURE;
 		}
 	}
-
-	memset(&config, 0, sizeof(struct cfg));
 
 	if (load_config(&config) != 0)
 	{
@@ -102,6 +114,14 @@ int main(int argc, char **argv)
 	}
 	else
 	{
+		if (strcmp(pause, ""))
+		{
+			syno_pause(config.url, &s, pause);
+		}
+		if (strcmp(resume, ""))
+		{
+			syno_resume(config.url, &s, resume);
+		}
 		info(config.url, &s);
 	}
 
