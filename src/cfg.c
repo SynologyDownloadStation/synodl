@@ -34,11 +34,11 @@ config_cb(void* user, const char* s, const char* name, const char* value)
 	cf = (struct cfg *) user;
 
 	if (!strcmp(name, "user"))
-		snprintf(cf->user, sizeof(cf->user), value);
+		snprintf(cf->user, sizeof(cf->user), "%s", value);
 	else if (!strcmp(name, "password"))
-		snprintf(cf->pw, sizeof(cf->pw), value);
+		snprintf(cf->pw, sizeof(cf->pw), "%s", value);
 	else if (!strcmp(name, "url"))
-		snprintf(cf->url, sizeof(cf->url), value);
+		snprintf(cf->url, sizeof(cf->url), "%s", value);
 
 	return 1;
 }
