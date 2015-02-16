@@ -18,23 +18,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-#ifndef __SYNODL_UI_H
-#define __SYNODL_UI_H
+#ifndef __SYNODL_TASK_H
+#define __SYNODL_TASK_H
 
-#include "task.h"
-
-struct syno_ui
+struct download_task
 {
-	void (*init)();
-	void (*stop)();
-	int (*status)(const char *fmt, ...);
-	void (*loop)();
-	void (*add_task)(struct download_task *t);
-	void (*free)();
-	void (*render)();
+	char id[16];
+	char fn[128];
+	char status[32];
+	int size;
+	int downloaded;
+	int uploaded;
+	int speed_dn;
+	int speed_up;
 };
-
-void console_ui();
-void curses_ui();
 
 #endif

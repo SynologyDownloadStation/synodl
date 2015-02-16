@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <json-c/json.h>
 #include <json-c/json_tokener.h>
 
+#include "syno.h"
 #include "ui.h"
 
 struct string
@@ -51,34 +52,6 @@ free_string(struct string *s)
 {
 	free(s->ptr);
 }
-
-//static char *
-//status_color(const char *status)
-//{
-//	if (!strcmp(status, "finished"))
-//		return "\033[0;32m"; /* green */
-//	else if (!strcmp(status, "paused"))
-//		return "\033[0;35m"; /* purple */
-//	else if (!strcmp(status, "downloading"))
-//		return "\033[0;36m"; /* cyan */
-//	else if (!strcmp(status, "waiting"))
-//		return "\033[0;33m"; /* yellow */
-//	else if (!strcmp(status, "seeding"))
-//		return "\033[0;34m"; /* blue */
-//
-//	return "\033[0;31m"; /* red */
-//}
-//
-//static char *
-//reset_color()
-//{
-//	return "\033[0m";
-//}
-
-struct session
-{
-	char sid[24];
-};
 
 static void
 json_load_login(json_object *obj, struct session *s)
@@ -117,8 +90,8 @@ static void
 json_load_torrents(json_object *obj, struct session *s, struct syno_ui *ui)
 {
 	json_object *data, *tasks, *task, *tmp, *additional, *transfer;
-	const char *status, *id;
-	int i, dl, ul, size, have, sent;
+	struct download_task dt;
+	int i;
 
 	data = json_object_object_get(obj, "data");
 	if (!data)
@@ -143,21 +116,24 @@ json_load_torrents(json_object *obj, struct session *s, struct syno_ui *ui)
 
 	for (i=0; i < json_object_array_length(tasks); i++)
 	{
+		memset(&dt, 0, sizeof(struct download_task));
+
 		task = json_object_array_get_idx(tasks, i);
 
 		tmp = json_object_object_get(task, "id");
-		id = json_object_get_string(tmp);
+		snprintf(dt.id, sizeof(dt.id), "%s",
+						json_object_get_string(tmp));
 
 		tmp = json_object_object_get(task, "title");
-		ui->printf("* [%s] %s\n", id, json_object_get_string(tmp));
+		snprintf(dt.fn, sizeof(dt.fn), "%s",
+						json_object_get_string(tmp));
 
 		tmp = json_object_object_get(task, "status");
-		status = json_object_get_string(tmp);
-//		printf("  %s%s%s", status_color(status), status, reset_color());
-		ui->printf("  %s", status);
+		snprintf(dt.status, sizeof(dt.status), "%s",
+						json_object_get_string(tmp));
 
 		tmp = json_object_object_get(task, "size");
-		size = json_object_get_int(tmp);
+		dt.size = json_object_get_int(tmp);
 
 		additional = json_object_object_get(task, "additional");
 		transfer = json_object_object_get(additional, "transfer");
@@ -166,28 +142,24 @@ json_load_torrents(json_object *obj, struct session *s, struct syno_ui *ui)
 		{
 			tmp = json_object_object_get(transfer,
 							"size_downloaded");
-			have = json_object_get_int(tmp);
-			ui->printf(" [%d%%]", (int)(((float) have / size)*100));
+			dt.downloaded = json_object_get_int(tmp);
 
-			if (!strcmp(status, "downloading"))
+			if (!strcmp(dt.status, "downloading"))
 			{
 				tmp = json_object_object_get(transfer,
 							"speed_download");
-				dl = json_object_get_int(tmp);
-				ui->printf(", ↓ %d B/s", dl);
+				dt.speed_dn = json_object_get_int(tmp);
 
 				tmp = json_object_object_get(transfer,
 							"speed_upload");
-				ul = json_object_get_int(tmp);
-				ui->printf(", ↑ %d B/s", ul);
+				dt.speed_up = json_object_get_int(tmp);
 			}
 		}
 
 		tmp = json_object_object_get(transfer, "size_uploaded");
-		sent = json_object_get_int(tmp);
-		ui->printf(", ratio: %0.2f", (float) sent / size);
+		dt.uploaded = json_object_get_int(tmp);
 
-		ui->printf("\n");
+		ui->add_task(&dt);
 	}
 }
 
@@ -412,6 +384,7 @@ syno_info(struct syno_ui *ui, const char *base, struct session *s)
 	}
 
 	res = torrents_receive(&st, ui);
+	ui->render();
 	free_string(&st);
 
 	return res;

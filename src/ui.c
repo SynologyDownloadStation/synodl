@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <ncurses.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -27,13 +28,78 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "ui.h"
 
+/*
+	Common
+*/
+
+struct tasklist_ent
+{
+	struct download_task *t;
+	struct tasklist_ent *next;
+};
+
+struct tasklist_ent *tasks;
+
+static void
+add_task(struct download_task *t)
+{
+	struct tasklist_ent *ent = malloc(sizeof(struct tasklist_ent));
+
+	if (!ent)
+	{
+		fprintf(stderr, "Malloc failed\n");
+		return;
+	}
+
+	ent->t = malloc(sizeof(struct download_task));
+
+	if (!ent->t)
+	{
+		fprintf(stderr, "Malloc failed\n");
+		return;
+	}
+
+	memcpy(ent->t, t, sizeof(struct download_task));
+
+	ent->next = tasks;
+	tasks = ent;
+}
+
+static void
+free_tasks()
+{
+	struct tasklist_ent *ent, *tmp;
+
+	ent = tasks;
+
+	while (ent)
+	{
+		tmp = ent;
+		ent = ent->next;
+
+		free(tmp->t);
+		free(tmp);
+	}
+}
+
+static void
+noop()
+{
+}
+
+/*
+	Curses UI
+*/
+
 WINDOW *status, *list;
 
 static void
-ui_init()
+nc_init()
 {
 	struct winsize w;
 	WINDOW *tmp, *version;
+
+	tasks = NULL;
 
 	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 
@@ -68,39 +134,39 @@ ui_init()
 }
 
 static int
-ui_status(const char *fmt, ...)
+nc_status(const char *fmt, ...)
 {
 	wclear(status);
 
-	va_list argList;
-	va_start(argList, fmt);
-	vwprintw(status, fmt, argList);
-	va_end(argList);
+	va_list args;
+	va_start(args, fmt);
+	vwprintw(status, fmt, args);
+	va_end(args);
 
 	wrefresh(status);
 	return 0;
 }
 
 static int
-ui_printf(const char *fmt, ...)
+nc_printf(const char *fmt, ...)
 {
-	va_list argList;
-	va_start(argList, fmt);
-	vwprintw(list, fmt, argList);
-	va_end(argList);
+	va_list args;
+	va_start(args, fmt);
+	vwprintw(list, fmt, args);
+	va_end(args);
 
 	wrefresh(list);
 	return 0;
 }
 
 static void
-ui_stop()
+nc_stop()
 {
 	endwin();
 }
 
 static void
-ui_loop()
+nc_loop()
 {
 	while (1)
 	{
@@ -109,24 +175,117 @@ ui_loop()
 }
 
 static void
-nothing()
+nc_print_tasks()
 {
+	struct tasklist_ent *tmp;
+	struct download_task *t;
+	int percent;
+
+	for (tmp = tasks; tmp != NULL; tmp = tmp->next)
+	{
+		t = tmp->t;
+		percent = (((float) t->downloaded / t->size) * 100);
+
+		nc_printf("* %s\n", t->fn);
+		nc_printf("  %s [%d%%]", t->status, percent);
+
+		if (!strcmp(t->status, "downloading"))
+		{
+			nc_printf(", ↓ %d B/s", t->speed_dn);
+			nc_printf(", ↑ %d B/s", t->speed_up);
+		}
+
+		nc_printf(", ratio: %0.2f\n", (float) t->uploaded / t->size);
+	}
 }
 
-void console_ui(struct syno_ui *ui)
+/*
+	Console UI
+*/
+
+static char *
+cs_status_color(const char *status)
 {
-	ui->init = nothing;
-	ui->status = printf;
-	ui->printf = printf;
-	ui->stop = nothing;
-	ui->loop = nothing;
+	if (!strcmp(status, "finished"))
+		return "\033[0;32m"; /* green */
+	else if (!strcmp(status, "paused"))
+		return "\033[0;35m"; /* purple */
+	else if (!strcmp(status, "downloading"))
+		return "\033[0;36m"; /* cyan */
+	else if (!strcmp(status, "waiting"))
+		return "\033[0;33m"; /* yellow */
+	else if (!strcmp(status, "seeding"))
+		return "\033[0;34m"; /* blue */
+
+	return "\033[0;31m"; /* red */
 }
 
-void curses_ui(struct syno_ui *ui)
+static char *
+cs_reset_color()
 {
-	ui->init = ui_init;
-	ui->status = ui_status;
-	ui->printf = ui_printf;
-	ui->stop = ui_stop;
-	ui->loop = ui_loop;
+	return "\033[0m";
+}
+
+static int
+cs_status(const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	va_end(args);
+
+	return 0;
+}
+
+static void
+cs_print_tasks()
+{
+	struct tasklist_ent *tmp;
+	struct download_task *t;
+
+	for (tmp = tasks; tmp != NULL; tmp = tmp->next)
+	{
+		t = tmp->t;
+		printf("* [%s] %s\n", t->id, t->fn);
+		printf("  %s%s%s", cs_status_color(t->status), t->status,
+							cs_reset_color());
+		printf(" [%d%%]", (int)(((float) t->downloaded / t->size)*100));
+
+		if (!strcmp(t->status, "downloading"))
+		{
+			printf(", ↓ %d B/s", t->speed_dn);
+			printf(", ↑ %d B/s", t->speed_up);
+		}
+
+		printf(", ratio: %0.2f", (float) t->uploaded / t->size);
+		printf("\n");
+	}
+}
+
+/*
+	Initialization
+*/
+
+void
+console_ui(struct syno_ui *ui)
+{
+	ui->init = noop;
+	ui->status = cs_status;
+	ui->stop = noop;
+	ui->loop = noop;
+	ui->add_task = add_task;
+	ui->free = free_tasks;
+	ui->render = cs_print_tasks;
+}
+
+void
+curses_ui(struct syno_ui *ui)
+{
+	ui->init = nc_init;
+	ui->status = nc_status;
+	ui->stop = nc_stop;
+	ui->loop = nc_loop;
+	ui->add_task = add_task;
+	ui->free = free_tasks;
+	ui->render = nc_print_tasks;
 }

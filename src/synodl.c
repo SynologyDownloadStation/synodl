@@ -26,6 +26,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "config.h"
 #include "cfg.h"
 #include "syno.h"
+#include "ui.h"
 
 void help()
 {
@@ -33,7 +34,7 @@ void help()
 	printf("If URL is empty a list of current download tasks is shown,\n");
 	printf("otherwise the URL is added as a download task.\n\n");
 	printf("  -h, --help           Show this help\n");
-	printf("      --dump           Show current downloads (default)\n");
+	printf("      --dump           Show current downloads\n");
 	printf("  -p, --pause=ID       Pause download\n");
 	printf("  -r, --resume=ID      Resume download\n");
 	printf("\n");
@@ -47,6 +48,7 @@ int main(int argc, char **argv)
 	const char *url, *pause, *resume;
 	struct cfg config;
 	struct session s;
+	struct syno_ui ui;
 
 	struct option long_options[] =
 	{
@@ -58,8 +60,11 @@ int main(int argc, char **argv)
 	};
 
 	memset(&config, 0, sizeof(struct cfg));
+	memset(&ui, 0, sizeof(struct syno_ui));
+
 	pause = "";
 	resume = "";
+	curses_ui(&ui);
 
 	while (1)
 	{
@@ -76,17 +81,20 @@ int main(int argc, char **argv)
 			switch (option_idx)
 			{
 			case 1:
-				// dump -> default operation, ignoring
+				console_ui(&ui);
 				break;
 			}
+			break;
 		case 'h':
 			help();
 			return EXIT_SUCCESS;
 		case 'p':
 			pause = optarg;
+			console_ui(&ui);
 			break;
 		case 'r':
 			resume = optarg;
+			console_ui(&ui);
 			break;
 		default:
 			help();
@@ -102,7 +110,9 @@ int main(int argc, char **argv)
 
 	memset(&s, 0, sizeof(struct session));
 
-	if (syno_login(config.url, &s, config.user, config.pw) != 0)
+	ui.init();
+
+	if (syno_login(&ui, config.url, &s, config.user, config.pw) != 0)
 	{
 		return EXIT_FAILURE;
 	}
@@ -110,22 +120,24 @@ int main(int argc, char **argv)
 	if (optind < argc)
 	{
 		url = argv[optind];
-		syno_download(config.url, &s, url);
+		syno_download(&ui, config.url, &s, url);
 	}
 	else
 	{
 		if (strcmp(pause, ""))
 		{
-			syno_pause(config.url, &s, pause);
+			syno_pause(&ui, config.url, &s, pause);
 		}
 		if (strcmp(resume, ""))
 		{
-			syno_resume(config.url, &s, resume);
+			syno_resume(&ui, config.url, &s, resume);
 		}
-		syno_info(config.url, &s);
+		syno_info(&ui, config.url, &s);
 	}
 
-	syno_logout(config.url, &s);
+	ui.loop();
+	syno_logout(&ui, config.url, &s);
+	ui.free();
 
 	return EXIT_SUCCESS;
 }
