@@ -147,18 +147,6 @@ nc_status(const char *fmt, ...)
 	return 0;
 }
 
-static int
-nc_printf(const char *fmt, ...)
-{
-	va_list args;
-	va_start(args, fmt);
-	vwprintw(list, fmt, args);
-	va_end(args);
-
-	wrefresh(list);
-	return 0;
-}
-
 static void
 nc_stop()
 {
@@ -179,24 +167,30 @@ nc_print_tasks()
 {
 	struct tasklist_ent *tmp;
 	struct download_task *t;
-	int percent;
+	int percent, i;
+	char speed[80];
+
+	i = 0;
 
 	for (tmp = tasks; tmp != NULL; tmp = tmp->next)
 	{
 		t = tmp->t;
+		memset(speed, 0, sizeof(speed));
 		percent = (((float) t->downloaded / t->size) * 100);
 
-		nc_printf("* %s\n", t->fn);
-		nc_printf("  %s [%d%%]", t->status, percent);
+		mvwprintw(list, i, 0, "* %s", t->fn);
 
 		if (!strcmp(t->status, "downloading"))
 		{
-			nc_printf(", ↓ %d B/s", t->speed_dn);
-			nc_printf(", ↑ %d B/s", t->speed_up);
+			snprintf(speed, sizeof(speed), ", D: %d B/s, U: %d B/s",
+						t->speed_dn, t->speed_up);
 		}
 
-		nc_printf(", ratio: %0.2f\n", (float) t->uploaded / t->size);
+		mvwprintw(list, i+1, 0, "  %s [%d%%]%s", t->status, percent,
+									speed);
+		i += 2;
 	}
+	wrefresh(list);
 }
 
 /*
@@ -234,6 +228,8 @@ cs_status(const char *fmt, ...)
 	vprintf(fmt, args);
 	va_end(args);
 
+	printf("\n");
+
 	return 0;
 }
 
@@ -257,8 +253,7 @@ cs_print_tasks()
 			printf(", ↑ %d B/s", t->speed_up);
 		}
 
-		printf(", ratio: %0.2f", (float) t->uploaded / t->size);
-		printf("\n");
+		printf(", ratio: %0.2f\n", (float) t->uploaded / t->size);
 	}
 }
 
