@@ -4,6 +4,7 @@ AC_PROG_CC
 
 PKG_CHECK_MODULES(libjson, json-c)
 PKG_CHECK_MODULES(libcurl, libcurl)
+PKG_CHECK_MODULES(libncursew, ncursesw)
 
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES(Makefile src/Makefile)

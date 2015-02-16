@@ -23,6 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <json-c/json.h>
 #include <json-c/json_tokener.h>
 
+#include "ui.h"
+
 struct string
 {
 	int size;
@@ -50,28 +52,28 @@ free_string(struct string *s)
 	free(s->ptr);
 }
 
-static char *
-status_color(const char *status)
-{
-	if (!strcmp(status, "finished"))
-		return "\033[0;32m"; /* green */
-	else if (!strcmp(status, "paused"))
-		return "\033[0;35m"; /* purple */
-	else if (!strcmp(status, "downloading"))
-		return "\033[0;36m"; /* cyan */
-	else if (!strcmp(status, "waiting"))
-		return "\033[0;33m"; /* yellow */
-	else if (!strcmp(status, "seeding"))
-		return "\033[0;34m"; /* blue */
-
-	return "\033[0;31m"; /* red */
-}
-
-static char *
-reset_color()
-{
-	return "\033[0m";
-}
+//static char *
+//status_color(const char *status)
+//{
+//	if (!strcmp(status, "finished"))
+//		return "\033[0;32m"; /* green */
+//	else if (!strcmp(status, "paused"))
+//		return "\033[0;35m"; /* purple */
+//	else if (!strcmp(status, "downloading"))
+//		return "\033[0;36m"; /* cyan */
+//	else if (!strcmp(status, "waiting"))
+//		return "\033[0;33m"; /* yellow */
+//	else if (!strcmp(status, "seeding"))
+//		return "\033[0;34m"; /* blue */
+//
+//	return "\033[0;31m"; /* red */
+//}
+//
+//static char *
+//reset_color()
+//{
+//	return "\033[0m";
+//}
 
 struct session
 {
@@ -112,7 +114,7 @@ json_load_login(json_object *obj, struct session *s)
 }
 
 static void
-json_load_torrents(json_object *obj, struct session *s)
+json_load_torrents(json_object *obj, struct session *s, struct syno_ui *ui)
 {
 	json_object *data, *tasks, *task, *tmp, *additional, *transfer;
 	const char *status, *id;
@@ -147,11 +149,12 @@ json_load_torrents(json_object *obj, struct session *s)
 		id = json_object_get_string(tmp);
 
 		tmp = json_object_object_get(task, "title");
-		printf("* [%s] %s\n", id, json_object_get_string(tmp));
+		ui->printf("* [%s] %s\n", id, json_object_get_string(tmp));
 
 		tmp = json_object_object_get(task, "status");
 		status = json_object_get_string(tmp);
-		printf("  %s%s%s", status_color(status), status, reset_color());
+//		printf("  %s%s%s", status_color(status), status, reset_color());
+		ui->printf("  %s", status);
 
 		tmp = json_object_object_get(task, "size");
 		size = json_object_get_int(tmp);
@@ -164,27 +167,27 @@ json_load_torrents(json_object *obj, struct session *s)
 			tmp = json_object_object_get(transfer,
 							"size_downloaded");
 			have = json_object_get_int(tmp);
-			printf(" [%d%%]", (int) (((float) have / size) * 100));
+			ui->printf(" [%d%%]", (int)(((float) have / size)*100));
 
 			if (!strcmp(status, "downloading"))
 			{
 				tmp = json_object_object_get(transfer,
 							"speed_download");
 				dl = json_object_get_int(tmp);
-				printf(", ↓ %d B/s", dl);
+				ui->printf(", ↓ %d B/s", dl);
 
 				tmp = json_object_object_get(transfer,
 							"speed_upload");
 				ul = json_object_get_int(tmp);
-				printf(", ↑ %d B/s", ul);
+				ui->printf(", ↑ %d B/s", ul);
 			}
 		}
 
 		tmp = json_object_object_get(transfer, "size_uploaded");
 		sent = json_object_get_int(tmp);
-		printf(", ratio: %0.2f", (float) sent / size);
+		ui->printf(", ratio: %0.2f", (float) sent / size);
 
-		printf("\n");
+		ui->printf("\n");
 	}
 }
 
@@ -217,7 +220,7 @@ session_load(struct string *st, struct session *session)
 }
 
 static int
-torrents_receive(struct string *st)
+torrents_receive(struct string *st, struct syno_ui *ui)
 {
 	json_tokener *tok;
 	json_object *obj;
@@ -239,7 +242,7 @@ torrents_receive(struct string *st)
 		return 1;
 	}
 
-	json_load_torrents(obj, NULL);
+	json_load_torrents(obj, NULL, ui);
 	json_object_put(obj);
 	return 0;
 }
@@ -331,12 +334,14 @@ curl_do(const char *url, void *cb_arg, struct string *st)
 }
 
 int
-syno_login(const char *base, struct session *s, const char *usr, const char *pw)
+syno_login(struct syno_ui *ui, const char *base, struct session *s,
+						const char *usr, const char *pw)
 {
 	char url[1024];
 	struct string st;
 
-	printf("API login at %s\n", base);
+//	printf("API login at %s\n", base);
+	ui->status("Logging in...");
 
 	init_string(&st);
 
@@ -360,11 +365,12 @@ syno_login(const char *base, struct session *s, const char *usr, const char *pw)
 		return 1;
 	}
 
+	ui->status("Connected");
 	return 0;
 }
 
 int
-syno_logout(const char *base, struct session *s)
+syno_logout(struct syno_ui *ui, const char *base, struct session *s)
 {
 	char url[1024];
 	struct string st;
@@ -386,7 +392,7 @@ syno_logout(const char *base, struct session *s)
 }
 
 int
-syno_info(const char *base, struct session *s)
+syno_info(struct syno_ui *ui, const char *base, struct session *s)
 {
 	char url[1024];
 	int res;
@@ -405,14 +411,15 @@ syno_info(const char *base, struct session *s)
 		return 1;
 	}
 
-	res = torrents_receive(&st);
+	res = torrents_receive(&st, ui);
 	free_string(&st);
 
 	return res;
 }
 
 int
-syno_download(const char *base, struct session *s, const char *dl_url)
+syno_download(struct syno_ui *ui, const char *base, struct session *s,
+							const char *dl_url)
 {
 	char url[1024], *esc;
 	int res;
@@ -439,7 +446,8 @@ syno_download(const char *base, struct session *s, const char *dl_url)
 }
 
 int
-syno_pause(const char *base, struct session *s, const char *ids)
+syno_pause(struct syno_ui *ui, const char *base, struct session *s,
+								const char *ids)
 {
 	char url[1024];
 	int res;
@@ -465,7 +473,8 @@ syno_pause(const char *base, struct session *s, const char *ids)
 }
 
 int
-syno_resume(const char *base, struct session *s, const char *ids)
+syno_resume(struct syno_ui *ui, const char *base, struct session *s,
+								const char *ids)
 {
 	char url[1024];
 	int res;

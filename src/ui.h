@@ -18,25 +18,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-#ifndef __SYNODL_SYNO_H
-#define __SYNODL_SYNO_H
+#ifndef __SYNODL_UI_H
+#define __SYNODL_UI_H
 
-#include "ui.h"
-
-struct session
+struct syno_ui
 {
-	char sid[24];
+	void (*init)();
+	void (*stop)();
+	int (*status)(const char *fmt, ...);
+	int (*printf)(const char *fmt, ...);
+	void (*loop)();
 };
 
-int syno_login(struct syno_ui *ui, const char *base, struct session *s,
-						const char *u, const char *pw);
-int syno_info(struct syno_ui *ui, const char *base, struct session *s);
-int syno_download(struct syno_ui *ui, const char *base, struct session *s,
-							const char *dl_url);
-int syno_logout(struct syno_ui *ui, const char *base, struct session *s);
-int syno_pause(struct syno_ui *ui, const char *base, struct session *s,
-							const char *ids);
-int syno_resume(struct syno_ui *ui, const char *base, struct session *s,
-							const char *ids);
+void console_ui();
+void curses_ui();
 
 #endif
