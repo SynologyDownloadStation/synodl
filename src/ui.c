@@ -116,13 +116,15 @@ nc_status_color(const char *status, WINDOW *win)
 	else if (!strcmp(status, "paused"))
 		return;// "\033[0;35m"; /* purple */
 	else if (!strcmp(status, "downloading"))
+		wattron(win, COLOR_PAIR(6)); /* cyan */
+	else if (!strcmp(status, "finishing"))
 		return;// "\033[0;36m"; /* cyan */
 	else if (!strcmp(status, "waiting"))
 		return;// "\033[0;33m"; /* yellow */
 	else if (!strcmp(status, "seeding"))
 		wattron(win, COLOR_PAIR(4)); /* blue */
 	else
-		return;// "\033[0;31m"; /* red */
+		wattron(win, COLOR_PAIR(5)); /* red */
 }
 
 static void
@@ -133,13 +135,15 @@ nc_status_color_off(const char *status, WINDOW *win)
 	else if (!strcmp(status, "paused"))
 		return;// "\033[0;35m"; /* purple */
 	else if (!strcmp(status, "downloading"))
+		wattroff(win, COLOR_PAIR(6)); /* cyan */
+	else if (!strcmp(status, "finishing"))
 		return;// "\033[0;36m"; /* cyan */
 	else if (!strcmp(status, "waiting"))
 		return;// "\033[0;33m"; /* yellow */
 	else if (!strcmp(status, "seeding"))
 		wattroff(win, COLOR_PAIR(4)); /* blue */
 	else
-		return;// "\033[0;31m"; /* red */
+		wattroff(win, COLOR_PAIR(5)); /* red */
 }
 
 static void
@@ -331,7 +335,7 @@ nc_help_bar()
 	WINDOW *tmp;
 
 	tmp = newwin(1, COLS, LINES - 1, 0);
-	wprintw(tmp, "Q)uit  R)efresh");
+	wprintw(tmp, "Q)uit  R)efresh  A)dd task");
 	wrefresh(tmp);
 }
 
@@ -377,7 +381,8 @@ nc_init()
 	init_pair(2, COLOR_WHITE, COLOR_BLUE);
 	init_pair(3, COLOR_GREEN, COLOR_BLACK);
 	init_pair(4, COLOR_BLUE, COLOR_BLACK);
-	init_pair(5, COLOR_BLACK, COLOR_YELLOW);
+	init_pair(5, COLOR_RED, COLOR_BLACK);
+	init_pair(6, COLOR_CYAN, COLOR_BLACK);
 
 	version = newwin(1, w.ws_col, 0, 0);
 	wattron(version, COLOR_PAIR(1));
@@ -413,6 +418,35 @@ nc_stop()
 }
 
 static void
+nc_add_task(struct syno_ui *ui, const char *base, struct session *s)
+{
+	WINDOW *prompt;
+	char str[1024];
+
+	prompt = newwin(5, COLS - 4, (LINES / 2) - 1, 2);
+	wattron(prompt, COLOR_PAIR(2));
+	box(prompt, 0, 0);
+	mvwprintw(prompt, 0, 3, "[ Add task: Enter URL ]");
+	wattroff(prompt, COLOR_PAIR(2));
+	wrefresh(prompt);
+
+	mvwgetnstr(prompt, 1, 3, str, sizeof(str) - 1);
+
+	delwin(prompt);
+
+	if (strcmp(str, "") == 0)
+	{
+		nc_status("Aborted");
+	}
+	else
+	{
+		syno_download(ui, base, s, str);
+		nc_status("Download task added");
+	}
+	nc_print_tasks();
+}
+
+static void
 nc_loop(struct syno_ui *ui, const char *base, struct session *s)
 {
 	int key;
@@ -436,6 +470,9 @@ nc_loop(struct syno_ui *ui, const char *base, struct session *s)
 		case KEY_END:
 			nc_select_last();
 			nc_print_tasks();
+			break;
+		case 65: /* A */
+			nc_add_task(ui, base, s);
 			break;
 		case 81: /* Q */
 			nc_status("Terminating...");
