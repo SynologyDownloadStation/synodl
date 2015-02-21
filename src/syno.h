@@ -21,12 +21,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __SYNODL_SYNO_H
 #define __SYNODL_SYNO_H
 
-#include "ui.h"
-
 struct session
 {
 	char sid[24];
 };
+
+#include "ui.h"
 
 int syno_login(struct syno_ui *ui, const char *base, struct session *s,
 						const char *u, const char *pw);

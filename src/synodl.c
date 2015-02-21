@@ -135,8 +135,9 @@ int main(int argc, char **argv)
 		syno_info(&ui, config.url, &s);
 	}
 
-	ui.loop();
+	ui.loop(&ui, config.url, &s);
 	syno_logout(&ui, config.url, &s);
+	ui.stop();
 	ui.free();
 
 	return EXIT_SUCCESS;

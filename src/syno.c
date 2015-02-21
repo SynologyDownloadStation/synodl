@@ -383,6 +383,7 @@ syno_info(struct syno_ui *ui, const char *base, struct session *s)
 		return 1;
 	}
 
+	ui->free();
 	res = torrents_receive(&st, ui);
 	ui->render();
 	free_string(&st);

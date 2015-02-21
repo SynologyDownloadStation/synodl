@@ -28,7 +28,7 @@ struct syno_ui
 	void (*init)();
 	void (*stop)();
 	int (*status)(const char *fmt, ...);
-	void (*loop)();
+	void (*loop)(struct syno_ui *ui, const char *base, struct session *s);
 	void (*add_task)(struct download_task *t);
 	void (*free)();
 	void (*render)();
