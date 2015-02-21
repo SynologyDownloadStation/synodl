@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+#include <math.h>
 #include <ncurses.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -147,18 +148,26 @@ nc_status_color_off(const char *status, WINDOW *win)
 }
 
 static void
-unit(int size, char *buf, ssize_t len)
+unit(double size, char *buf, ssize_t len)
 {
-	char units[] = "BkMGTPEZY";
+	char u[] = "BkMGTPEZY";
 	int cur = 0;
 
-	while ((size > 1024) && (cur < strlen(units)))
+
+	while ((size > 1024) && (cur < strlen(u)))
 	{
 		cur += 1;
 		size /= 1024;
 	}
 
-	snprintf(buf, len, "%d%c", size, units[cur]);
+	if (size < 10)
+	{
+		snprintf(buf, len, "%1.1f%c", roundf(size * 100) / 100, u[cur]);
+	}
+	else
+	{
+		snprintf(buf, len, "%ld%c", lround(size), u[cur]);
+	}
 }
 
 static void
