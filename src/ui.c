@@ -112,38 +112,50 @@ WINDOW *status, *list;
 static void
 nc_status_color(const char *status, WINDOW *win)
 {
-	if (!strcmp(status, "finished"))
-		wattron(win, COLOR_PAIR(3)); /* green */
-	else if (!strcmp(status, "paused"))
-		return;// "\033[0;35m"; /* purple */
+	if (!strcmp(status, "waiting"))
+		wattron(win, COLOR_PAIR(7)); /* yellow */
 	else if (!strcmp(status, "downloading"))
 		wattron(win, COLOR_PAIR(6)); /* cyan */
+	else if (!strcmp(status, "paused"))
+		wattron(win, COLOR_PAIR(8)); /* magenta */
 	else if (!strcmp(status, "finishing"))
-		return;// "\033[0;36m"; /* cyan */
-	else if (!strcmp(status, "waiting"))
-		return;// "\033[0;33m"; /* yellow */
+		wattron(win, COLOR_PAIR(6)); /* cyan */
+	else if (!strcmp(status, "finished"))
+		wattron(win, COLOR_PAIR(3)); /* green */
+	else if (!strcmp(status, "hash_checking"))
+		wattron(win, COLOR_PAIR(6)); /* cyan */
 	else if (!strcmp(status, "seeding"))
 		wattron(win, COLOR_PAIR(4)); /* blue */
-	else
+	else if (!strcmp(status, "filehosting_waiting"))
+		wattron(win, COLOR_PAIR(7)); /* yellow */
+	else if (!strcmp(status, "extracting"))
+		wattron(win, COLOR_PAIR(6)); /* cyan */
+	else /* error */
 		wattron(win, COLOR_PAIR(5)); /* red */
 }
 
 static void
 nc_status_color_off(const char *status, WINDOW *win)
 {
-	if (!strcmp(status, "finished"))
-		wattroff(win, COLOR_PAIR(3)); /* green */
-	else if (!strcmp(status, "paused"))
-		return;// "\033[0;35m"; /* purple */
+	if (!strcmp(status, "waiting"))
+		wattron(win, COLOR_PAIR(7)); /* yellow */
 	else if (!strcmp(status, "downloading"))
 		wattroff(win, COLOR_PAIR(6)); /* cyan */
+	else if (!strcmp(status, "paused"))
+		wattron(win, COLOR_PAIR(8)); /* magenta */
 	else if (!strcmp(status, "finishing"))
-		return;// "\033[0;36m"; /* cyan */
-	else if (!strcmp(status, "waiting"))
-		return;// "\033[0;33m"; /* yellow */
+		wattroff(win, COLOR_PAIR(6)); /* cyan */
+	else if (!strcmp(status, "finished"))
+		wattroff(win, COLOR_PAIR(3)); /* green */
+	else if (!strcmp(status, "hash_checking"))
+		wattroff(win, COLOR_PAIR(6)); /* cyan */
 	else if (!strcmp(status, "seeding"))
 		wattroff(win, COLOR_PAIR(4)); /* blue */
-	else
+	else if (!strcmp(status, "filehosting_waiting"))
+		wattron(win, COLOR_PAIR(7)); /* yellow */
+	else if (!strcmp(status, "extracting"))
+		wattroff(win, COLOR_PAIR(6)); /* cyan */
+	else /* error */
 		wattroff(win, COLOR_PAIR(5)); /* red */
 }
 
@@ -392,6 +404,8 @@ nc_init()
 	init_pair(4, COLOR_BLUE, COLOR_BLACK);
 	init_pair(5, COLOR_RED, COLOR_BLACK);
 	init_pair(6, COLOR_CYAN, COLOR_BLACK);
+	init_pair(7, COLOR_YELLOW, COLOR_BLACK);
+	init_pair(8, COLOR_MAGENTA, COLOR_BLACK);
 
 	version = newwin(1, w.ws_col, 0, 0);
 	wattron(version, COLOR_PAIR(1));
@@ -505,18 +519,26 @@ nc_loop(struct syno_ui *ui, const char *base, struct session *s)
 static char *
 cs_status_color(const char *status)
 {
-	if (!strcmp(status, "finished"))
-		return "\033[0;32m"; /* green */
-	else if (!strcmp(status, "paused"))
-		return "\033[0;35m"; /* purple */
+	if (!strcmp(status, "waiting"))
+		return "\033[0;33m"; /* yellow */
 	else if (!strcmp(status, "downloading"))
 		return "\033[0;36m"; /* cyan */
-	else if (!strcmp(status, "waiting"))
-		return "\033[0;33m"; /* yellow */
+	else if (!strcmp(status, "paused"))
+		return "\033[0;35m"; /* magenta */
+	else if (!strcmp(status, "finishing"))
+		return "\033[0;36m"; /* cyan */
+	else if (!strcmp(status, "finished"))
+		return "\033[0;32m"; /* green */
+	else if (!strcmp(status, "hash_checking"))
+		return "\033[0;36m"; /* cyan */
 	else if (!strcmp(status, "seeding"))
 		return "\033[0;34m"; /* blue */
-
-	return "\033[0;31m"; /* red */
+	else if (!strcmp(status, "filehosting_waiting"))
+		return "\033[0;33m"; /* yellow */
+	else if (!strcmp(status, "extracting"))
+		return "\033[0;36m"; /* cyan */
+	else /* error */
+		return "\033[0;31m"; /* red */
 }
 
 static char *
