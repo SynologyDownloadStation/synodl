@@ -244,7 +244,7 @@ nc_print_tasks()
 		{
 			nc_status_color_off(t->status, list);
 		}
-		mvwprintw(list, i, tn_width + 19, "%03d%%", percent);
+		mvwprintw(list, i, tn_width + 19, "%3d%%", percent);
 
 		if (tmp != nc_selected_task)
 		{
