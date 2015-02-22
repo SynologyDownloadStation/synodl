@@ -382,9 +382,6 @@ nc_init()
 	struct winsize w;
 	WINDOW *version;
 
-	cbreak();
-	noecho();
-
 	tasks = NULL;
 
 	// TODO: check and apply
@@ -396,7 +393,11 @@ nc_init()
 	sa.sa_handler = handle_winch;
 	sigaction(SIGWINCH, &sa, NULL);
 
+	cbreak();
 	initscr();
+	noecho();
+	curs_set(0);
+
 	start_color();
 	init_pair(1, COLOR_BLACK, COLOR_WHITE);
 	init_pair(2, COLOR_WHITE, COLOR_BLUE);
@@ -406,6 +407,7 @@ nc_init()
 	init_pair(6, COLOR_CYAN, COLOR_BLACK);
 	init_pair(7, COLOR_YELLOW, COLOR_BLACK);
 	init_pair(8, COLOR_MAGENTA, COLOR_BLACK);
+	init_pair(9, COLOR_BLACK, COLOR_CYAN);
 
 	version = newwin(1, w.ws_col, 0, 0);
 	wattron(version, COLOR_PAIR(1));
@@ -443,18 +445,31 @@ nc_stop()
 static void
 nc_add_task(struct syno_ui *ui, const char *base, struct session *s)
 {
-	WINDOW *prompt;
+	WINDOW *prompt, *p2;
 	char str[1024];
 
-	prompt = newwin(5, COLS - 4, (LINES / 2) - 1, 2);
+	prompt = newwin(4, COLS - 4, (LINES / 2) - 3, 2);
 	wattron(prompt, COLOR_PAIR(2));
+	wbkgd(prompt, COLOR_PAIR(2));
 	box(prompt, 0, 0);
-	mvwprintw(prompt, 0, 3, "[ Add task: Enter URL ]");
+	mvwprintw(prompt, 0, 3, "[ Add download task ]");
+	mvwprintw(prompt, 1, 2, "Enter URL:");
 	wattroff(prompt, COLOR_PAIR(2));
 	wrefresh(prompt);
 
-	mvwgetnstr(prompt, 1, 3, str, sizeof(str) - 1);
+	p2 = derwin(prompt, 1, COLS - 8, 2, 2);
+	wbkgd(p2, COLOR_PAIR(9));
 
+	touchwin(prompt);
+	wrefresh(p2);
+
+	echo();
+	curs_set(1);
+	wgetnstr(p2, str, sizeof(str) - 1);
+	curs_set(0);
+	noecho();
+
+	delwin(p2);
 	delwin(prompt);
 
 	if (strcmp(str, "") == 0)
@@ -466,6 +481,8 @@ nc_add_task(struct syno_ui *ui, const char *base, struct session *s)
 		syno_download(ui, base, s, str);
 		nc_status("Download task added");
 	}
+
+	touchwin(list);
 	nc_print_tasks();
 }
 
