@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <sys/ioctl.h>
@@ -107,7 +108,7 @@ noop()
 	Curses UI
 */
 
-WINDOW *status, *list;
+static WINDOW *status, *list, *version;
 
 static void
 nc_status_color(const char *status, WINDOW *win)
@@ -142,7 +143,7 @@ nc_status_color_off(const char *status, WINDOW *win)
 	else if (!strcmp(status, "downloading"))
 		wattroff(win, COLOR_PAIR(6)); /* cyan */
 	else if (!strcmp(status, "paused"))
-		wattron(win, COLOR_PAIR(8)); /* magenta */
+		wattroff(win, COLOR_PAIR(8)); /* magenta */
 	else if (!strcmp(status, "finishing"))
 		wattroff(win, COLOR_PAIR(6)); /* cyan */
 	else if (!strcmp(status, "finished"))
@@ -182,27 +183,65 @@ unit(double size, char *buf, ssize_t len)
 	}
 }
 
+static int
+nc_status(const char *fmt, ...)
+{
+	char buf[6];
+	time_t now;
+
+	now = time(NULL);
+	strftime(buf, sizeof(buf), "%H:%M", localtime(&now));
+
+	mvwhline(status, 0, 1, ' ', COLS);
+
+	va_list args;
+	va_start(args, fmt);
+	mvwprintw(status, 0, 1, "[%s]", buf);
+	mvwprintw(status, 0, 10, fmt, args);
+	va_end(args);
+
+	wrefresh(status);
+	return 0;
+}
+
+static int
+nc_status_totals(int up, int dn)
+{
+	char up_buf[32], dn_buf[32];
+	char speed[128];
+
+	unit(up, up_buf, sizeof(up_buf));
+	unit(dn, dn_buf, sizeof(dn_buf));
+	snprintf(speed, sizeof(speed), "u %s/s, d %s/s", up_buf, dn_buf);
+	return nc_status(speed);
+}
+
 static void
 nc_print_tasks()
 {
 	struct tasklist_ent *tmp;
 	struct download_task *t;
-	int percent, i, tn_width;
+	int percent, i, tn_width, total_dn, total_up;
 	char speed[80];
 	char fmt[16];
 	char buf[32];
 
 	i = 0;
+	total_dn = 0;
+	total_up = 0;
 
 	tn_width = COLS - 24;
 	snprintf(fmt, sizeof(fmt), "%%-%d.%ds", tn_width, tn_width);
 
+	wattron(list, COLOR_PAIR(10));
+	mvwprintw(list, i, 0, " ");
 	mvwprintw(list, i, 1, fmt, "Task");
 	mvwprintw(list, i, tn_width + 2, "Size");
-	mvwprintw(list, i, tn_width + 7, "%-11.11s Prog", "Status");
+	mvwprintw(list, i, tn_width + 7, "%-11.11s Prog ", "Status");
 	mvwhline(list, i, tn_width + 1, ACS_VLINE, 1);
 	mvwhline(list, i, tn_width + 6, ACS_VLINE, 1);
 	mvwhline(list, i, tn_width + 18, ACS_VLINE, 1);
+	wattroff(list, COLOR_PAIR(10));
 
 	i += 1;
 
@@ -210,6 +249,9 @@ nc_print_tasks()
 	{
 		t = tmp->t;
 		memset(speed, 0, sizeof(speed));
+
+		total_dn += t->speed_dn;
+		total_up += t->speed_up;
 
 		wmove(list, 0, i);
 
@@ -222,10 +264,13 @@ nc_print_tasks()
 			percent = (((float) t->downloaded / t->size) * 100);
 		}
 
-		wattron(list, A_BOLD);
 		if (tmp == nc_selected_task)
 		{
 			wattron(list, COLOR_PAIR(2));
+		}
+		else
+		{
+			wattron(list, A_BOLD);
 		}
 
 		mvwhline(list, i, 0, ' ', COLS);
@@ -264,6 +309,9 @@ nc_print_tasks()
 
 		i++;
 	}
+
+	nc_status_totals(total_up, total_dn);
+
 	wrefresh(list);
 }
 
@@ -324,20 +372,31 @@ nc_select_next()
 }
 
 static void
+nc_title_bar()
+{
+	if (version)
+	{
+		delwin(version);
+	}
+
+	version = newwin(1, COLS, 0, 0);
+	wattron(version, COLOR_PAIR(1));
+	wbkgd(version, COLOR_PAIR(1));
+	wprintw(version, " %s. Type '?' for help information.", PACKAGE_NAME);
+	wrefresh(version);
+}
+
+static void
 nc_status_bar()
 {
-	WINDOW *tmp;
+	if (status)
+	{
+		delwin(status);
+	}
 
-	tmp = newwin(1, COLS, LINES - 2, 0);
-	wattron(tmp, COLOR_PAIR(1));
-	wbkgd(tmp, COLOR_PAIR(1));
-	wattron(tmp, A_BOLD);
-	wrefresh(tmp);
-
-	status = newwin(1, COLS, LINES - 2, 1);
+	status = newwin(1, COLS, LINES - 1, 0);
 	wattron(status, COLOR_PAIR(1));
 	wbkgd(status, COLOR_PAIR(1));
-	wattron(status, A_BOLD);
 	wrefresh(status);
 
 	keypad(status, TRUE);
@@ -346,18 +405,13 @@ nc_status_bar()
 static void
 nc_task_window()
 {
-	list = newwin(LINES - 3, COLS, 1, 0);
+	if (list)
+	{
+		delwin(list);
+	}
+
+	list = newwin(LINES - 2, COLS, 1, 0);
 	wrefresh(list);
-}
-
-static void
-nc_help_bar()
-{
-	WINDOW *tmp;
-
-	tmp = newwin(1, COLS, LINES - 1, 0);
-	wprintw(tmp, "Q)uit  R)efresh  A)dd task");
-	wrefresh(tmp);
 }
 
 void handle_winch(int sig)
@@ -366,27 +420,19 @@ void handle_winch(int sig)
 	refresh();
 	clear();
 
-	/* TODO: copy status */
+	nc_title_bar();
 	nc_status_bar();
 	nc_task_window();
 	nc_print_tasks();
-	nc_help_bar();
 
-	wprintw(status, "%s", "WINCH");
 	wrefresh(status);
 }
 
 static void
 nc_init()
 {
-	struct winsize w;
-	WINDOW *version;
-
 	tasks = NULL;
-
-	// TODO: check and apply
-	// http://stackoverflow.com/questions/13707137/ncurses-resizing-glitch
-	ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+	nc_selected_task = NULL;
 
 	struct sigaction sa;
 	memset(&sa, 0, sizeof(struct sigaction));
@@ -399,8 +445,8 @@ nc_init()
 	curs_set(0);
 
 	start_color();
-	init_pair(1, COLOR_BLACK, COLOR_WHITE);
-	init_pair(2, COLOR_WHITE, COLOR_BLUE);
+	init_pair(1, COLOR_WHITE, COLOR_BLUE);
+	init_pair(2, COLOR_BLACK, COLOR_GREEN);
 	init_pair(3, COLOR_GREEN, COLOR_BLACK);
 	init_pair(4, COLOR_BLUE, COLOR_BLACK);
 	init_pair(5, COLOR_RED, COLOR_BLACK);
@@ -408,69 +454,89 @@ nc_init()
 	init_pair(7, COLOR_YELLOW, COLOR_BLACK);
 	init_pair(8, COLOR_MAGENTA, COLOR_BLACK);
 	init_pair(9, COLOR_BLACK, COLOR_CYAN);
+	init_pair(10, COLOR_BLACK, COLOR_WHITE);
 
-	version = newwin(1, w.ws_col, 0, 0);
-	wattron(version, COLOR_PAIR(1));
-	wbkgd(version, COLOR_PAIR(1));
-	wprintw(version, " %s", PACKAGE_STRING);
-	wrefresh(version);
-
+	nc_title_bar();
 	nc_status_bar();
 	nc_task_window();
-	nc_help_bar();
-
-	nc_selected_task = NULL;
-}
-
-static int
-nc_status(const char *fmt, ...)
-{
-	mvwhline(status, 0, 0, ' ', COLS);
-
-	va_list args;
-	va_start(args, fmt);
-	mvwprintw(status, 0, 0, fmt, args);
-	va_end(args);
-
-	wrefresh(status);
-	return 0;
 }
 
 static void
 nc_stop()
 {
+	delwin(version);
+	delwin(status);
 	endwin();
+}
+
+static void
+nc_help()
+{
+	WINDOW *win, *help;
+
+	win = newwin(7, 40, (LINES / 2) - 10, (COLS / 2) - 20);
+	wattron(win, COLOR_PAIR(1));
+	wbkgd(win, COLOR_PAIR(1));
+	box(win, 0, 0);
+	mvwprintw(win, 0, 9, "[ Keyboard shortcuts ]");
+	wattroff(win, COLOR_PAIR(2));
+	wrefresh(win);
+
+	help = derwin(win, 3, 24, 2, 8);
+	wattron(help, A_BOLD);
+	wprintw(help, "A");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... Add download task\n");
+	wattron(help, A_BOLD);
+	wprintw(help, "Q");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... Quit\n");
+	wattron(help, A_BOLD);
+	wprintw(help, "R");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... Refresh list\n");
+
+	touchwin(win);
+	wrefresh(help);
+
+	wgetch(help);
+
+	delwin(help);
+	delwin(win);
+
+	touchwin(list);
+	nc_print_tasks();
 }
 
 static void
 nc_add_task(struct syno_ui *ui, const char *base, struct session *s)
 {
-	WINDOW *prompt, *p2;
+	WINDOW *win, *prompt;
 	char str[1024];
 
-	prompt = newwin(4, COLS - 4, (LINES / 2) - 3, 2);
-	wattron(prompt, COLOR_PAIR(2));
-	wbkgd(prompt, COLOR_PAIR(2));
-	box(prompt, 0, 0);
-	mvwprintw(prompt, 0, 3, "[ Add download task ]");
-	mvwprintw(prompt, 1, 2, "Enter URL:");
-	wattroff(prompt, COLOR_PAIR(2));
+	win = newwin(4, COLS - 4, (LINES / 2) - 3, 2);
+	wattron(win, COLOR_PAIR(1));
+	wbkgd(win, COLOR_PAIR(1));
+	box(win, 0, 0);
+	mvwprintw(win, 0, 3, "[ Add download task ]");
+	mvwprintw(win, 1, 2, "Enter URL:");
+	wattroff(win, COLOR_PAIR(2));
+	wrefresh(win);
+
+	prompt = derwin(win, 1, COLS - 8, 2, 2);
+	wbkgd(prompt, COLOR_PAIR(9));
+
+	touchwin(win);
 	wrefresh(prompt);
-
-	p2 = derwin(prompt, 1, COLS - 8, 2, 2);
-	wbkgd(p2, COLOR_PAIR(9));
-
-	touchwin(prompt);
-	wrefresh(p2);
 
 	echo();
 	curs_set(1);
-	wgetnstr(p2, str, sizeof(str) - 1);
+	wgetnstr(prompt, str, sizeof(str) - 1);
 	curs_set(0);
 	noecho();
 
-	delwin(p2);
 	delwin(prompt);
+	delwin(win);
 
 	if (strcmp(str, "") == 0)
 	{
@@ -511,17 +577,23 @@ nc_loop(struct syno_ui *ui, const char *base, struct session *s)
 			nc_select_last();
 			nc_print_tasks();
 			break;
-		case 65: /* A */
+		case 0x3f: /* ? */
+			nc_help();
+			break;
+		case 97:  /* a */
+		case 65:  /* A */
+			nc_status("Adding task...");
 			nc_add_task(ui, base, s);
 			break;
-		case 81: /* Q */
+		case 113: /* q */
+		case 81:  /* Q */
 			nc_status("Terminating...");
 			return;
-		case 82: /* R */
+		case 114: /* r */
+		case 82:  /* R */
 			nc_status("Refreshing...");
 			syno_info(ui, base, s);
 			nc_print_tasks();
-			nc_status("All done");
 			break;
 		default:
 			break;
