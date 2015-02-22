@@ -255,6 +255,7 @@ curl_recv(void *ptr, size_t size, size_t nmemb, struct string *s)
 	pos = s->size - 1;
 	s->size += (size * nmemb);
 	s->ptr = realloc(s->ptr, s->size);
+	memset(s->ptr, 0, s->size);
 
 	if (!s->ptr)
 	{
