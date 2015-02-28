@@ -113,33 +113,34 @@ int main(int argc, char **argv)
 
 	memset(&s, 0, sizeof(struct session));
 
-	ui.init();
-
-	if (syno_login(&ui, config.url, &s, config.user, config.pw) != 0)
+	if (syno_login(config.url, &s, config.user, config.pw) != 0)
 	{
 		return EXIT_FAILURE;
 	}
 
+	ui.init();
+
 	if (optind < argc)
 	{
 		url = argv[optind];
-		syno_download(&ui, config.url, &s, url);
+		syno_download(config.url, &s, url);
 	}
 	else
 	{
 		if (strcmp(pause, ""))
 		{
-			syno_pause(&ui, config.url, &s, pause);
+			syno_pause(config.url, &s, pause);
 		}
 		if (strcmp(resume, ""))
 		{
-			syno_resume(&ui, config.url, &s, resume);
+			syno_resume(config.url, &s, resume);
 		}
-		syno_info(&ui, config.url, &s);
+		syno_list(config.url, &s, ui.add_task);
+		ui.render();
 	}
 
 	ui.loop(&ui, config.url, &s);
-	syno_logout(&ui, config.url, &s);
+	syno_logout(config.url, &s);
 	ui.stop();
 	ui.free();
 

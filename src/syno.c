@@ -53,25 +53,38 @@ free_string(struct string *s)
 	free(s->ptr);
 }
 
-static void
-json_load_login(json_object *obj, struct session *s)
+static int
+json_check_success(json_object *obj)
 {
+	json_object *success;
 	int login_success;
-	json_object *success, *data, *sid;
 
 	success = json_object_object_get(obj, "success");
 	if (!success)
 	{
 		fprintf(stderr, "Value 'success' missing from %s\n",
 						json_object_get_string(obj));
-		return;
+		return 1;
+	}
+
+	if (json_object_get_type(success) != json_type_boolean)
+	{
+		fprintf(stderr, "Invalid value received for 'success'\n");
+		return 1;
 	}
 
 	login_success = json_object_get_int(success);
-	if (login_success != 1)
+	return login_success == 0;
+}
+
+static int
+json_load_login(json_object *obj, struct session *s)
+{
+	json_object *data, *sid;
+
+	if (json_check_success(obj) != 0)
 	{
-		printf("%s\n", json_object_get_string(obj));
-		return;
+		return 1;
 	}
 
 	data = json_object_object_get(obj, "data");
@@ -79,44 +92,51 @@ json_load_login(json_object *obj, struct session *s)
 	{
 		fprintf(stderr, "Value 'data' missing from %s\n",
 						json_object_get_string(obj));
-		return;
+		return 1;
 	}
 
 	sid = json_object_object_get(data, "sid");
 	snprintf(s->sid, sizeof(s->sid), "%s", json_object_get_string(sid));
+
+	return 0;
 }
 
-static void
-json_load_tasks(json_object *obj, struct session *s, struct syno_ui *ui)
+static int
+json_load_tasks(json_object *obj, void (*cb)(struct task *))
 {
 	json_object *data, *tasks, *task, *tmp, *additional, *transfer;
-	struct download_task dt;
+	struct task dt;
 	int i;
+
+	if (json_check_success(obj) != 0)
+	{
+		return 1;
+	}
 
 	data = json_object_object_get(obj, "data");
 	if (!data)
 	{
 		fprintf(stderr, "Value 'data' missing from %s\n",
 						json_object_get_string(obj));
-		return;
+		return 1;
 	}
 
 	tasks = json_object_object_get(data, "tasks");
 	if (!tasks)
 	{
 		fprintf(stderr, "No tasks found\n");
-		return;
+		return 1;
 	}
 
 	if (json_object_get_type(tasks) != json_type_array)
 	{
 		fprintf(stderr, "Invalid type returned for tasks\n");
-		return;
+		return 1;
 	}
 
 	for (i=0; i < json_object_array_length(tasks); i++)
 	{
-		memset(&dt, 0, sizeof(struct download_task));
+		memset(&dt, 0, sizeof(struct task));
 
 		task = json_object_array_get_idx(tasks, i);
 
@@ -160,8 +180,21 @@ json_load_tasks(json_object *obj, struct session *s, struct syno_ui *ui)
 		tmp = json_object_object_get(transfer, "size_uploaded");
 		dt.uploaded = json_object_get_int(tmp);
 
-		ui->add_task(&dt);
+		cb(&dt);
 	}
+
+	return 0;
+}
+
+static int
+json_load_reply(json_object *obj)
+{
+	if (json_check_success(obj) != 0)
+	{
+		return 1;
+	}
+
+	return 0;
 }
 
 static int
@@ -193,8 +226,9 @@ session_load(struct string *st, struct session *session)
 }
 
 static int
-tasks_receive(struct string *st, struct syno_ui *ui)
+tasks_receive(struct string *st, void (*cb)(struct task *))
 {
+	int res;
 	json_tokener *tok;
 	json_object *obj;
 
@@ -215,14 +249,15 @@ tasks_receive(struct string *st, struct syno_ui *ui)
 		return 1;
 	}
 
-	json_load_tasks(obj, NULL, ui);
+	res = json_load_tasks(obj, cb);
 	json_object_put(obj);
-	return 0;
+	return res;
 }
 
 static int
-dump_reply(struct string *st)
+parse_reply(struct string *st)
 {
+	int res;
 	json_tokener *tok;
 	json_object *obj;
 
@@ -243,10 +278,14 @@ dump_reply(struct string *st)
 		return 1;
 	}
 
-	printf("RES=%s\n", json_object_get_string(obj));
+	res = json_load_reply(obj);
 	json_object_put(obj);
-	return 0;
+	return res;
 }
+
+/*
+ * cURL helpers
+ */
 
 static size_t
 curl_recv(void *ptr, size_t size, size_t nmemb, struct string *s)
@@ -306,20 +345,23 @@ curl_do(const char *url, void *cb_arg, struct string *st)
 	return 0;
 }
 
+/*
+ * "public" functions
+ */
+
 int
-syno_login(struct syno_ui *ui, const char *base, struct session *s,
-						const char *usr, const char *pw)
+syno_login(const char *base, struct session *s, const char *u, const char *pw)
 {
 	char url[1024];
 	struct string st;
 
-	ui->status("Logging in...");
+	printf("Logging in...\n");
 
 	init_string(&st);
 
 	snprintf(url, sizeof(url), "%s/webapi/auth.cgi?api=SYNO.API.Auth"
 		"&version=2&method=login&account=%s&passwd=%s"
-		"&session=DownloadStation&format=sid", base, usr, pw);
+		"&session=DownloadStation&format=sid", base, u, pw);
 
 	if (curl_do(url, s, &st) != 0)
 	{
@@ -337,14 +379,14 @@ syno_login(struct syno_ui *ui, const char *base, struct session *s,
 		return 1;
 	}
 
-	ui->status("Connected");
 	return 0;
 }
 
 int
-syno_logout(struct syno_ui *ui, const char *base, struct session *s)
+syno_logout(const char *base, struct session *s)
 {
 	char url[1024];
+	int res;
 	struct string st;
 
 	init_string(&st);
@@ -359,12 +401,13 @@ syno_logout(struct syno_ui *ui, const char *base, struct session *s)
 		return 1;
 	}
 
+	res = parse_reply(&st);
 	free_string(&st);
-	return 0;
+	return res;
 }
 
 int
-syno_info(struct syno_ui *ui, const char *base, struct session *s)
+syno_list(const char *base, struct session *s, void (*cb)(struct task *))
 {
 	char url[1024];
 	int res;
@@ -383,17 +426,13 @@ syno_info(struct syno_ui *ui, const char *base, struct session *s)
 		return 1;
 	}
 
-	ui->free();
-	res = tasks_receive(&st, ui);
-	ui->render();
+	res = tasks_receive(&st, cb);
 	free_string(&st);
-
 	return res;
 }
 
 int
-syno_download(struct syno_ui *ui, const char *base, struct session *s,
-							const char *dl_url)
+syno_download(const char *base, struct session *s, const char *dl_url)
 {
 	char url[1024], *esc;
 	int res;
@@ -413,15 +452,13 @@ syno_download(struct syno_ui *ui, const char *base, struct session *s,
 		return 1;
 	}
 
-	dump_reply(&st);
-
+	res = parse_reply(&st);
 	free_string(&st);
 	return res;
 }
 
 int
-syno_pause(struct syno_ui *ui, const char *base, struct session *s,
-								const char *ids)
+syno_pause(const char *base, struct session *s, const char *ids)
 {
 	char url[1024];
 	int res;
@@ -440,15 +477,13 @@ syno_pause(struct syno_ui *ui, const char *base, struct session *s,
 		return 1;
 	}
 
-	dump_reply(&st);
-
+	res = parse_reply(&st);
 	free_string(&st);
 	return res;
 }
 
 int
-syno_resume(struct syno_ui *ui, const char *base, struct session *s,
-								const char *ids)
+syno_resume(const char *base, struct session *s, const char *ids)
 {
 	char url[1024];
 	int res;
@@ -467,15 +502,13 @@ syno_resume(struct syno_ui *ui, const char *base, struct session *s,
 		return 1;
 	}
 
-	dump_reply(&st);
-
+	res = parse_reply(&st);
 	free_string(&st);
 	return res;
 }
 
 int
-syno_delete(struct syno_ui *ui, const char *base, struct session *s,
-								const char *ids)
+syno_delete(const char *base, struct session *s, const char *ids)
 {
 	char url[1024];
 	int res;
@@ -494,8 +527,7 @@ syno_delete(struct syno_ui *ui, const char *base, struct session *s,
 		return 1;
 	}
 
-	dump_reply(&st);
-
+	res = parse_reply(&st);
 	free_string(&st);
 	return res;
 }

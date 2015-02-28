@@ -21,7 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __SYNODL_UI_H
 #define __SYNODL_UI_H
 
-#include "task.h"
+#include "syno.h"
 
 struct syno_ui
 {
@@ -29,7 +29,7 @@ struct syno_ui
 	void (*stop)();
 	int (*status)(const char *fmt, ...);
 	void (*loop)(struct syno_ui *ui, const char *base, struct session *s);
-	void (*add_task)(struct download_task *t);
+	void (*add_task)(struct task *t);
 	void (*free)();
 	void (*render)();
 };

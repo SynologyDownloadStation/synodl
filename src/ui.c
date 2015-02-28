@@ -38,7 +38,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 struct tasklist_ent
 {
-	struct download_task *t;
+	struct task *t;
 	struct tasklist_ent *next;
 	struct tasklist_ent *prev;
 };
@@ -47,7 +47,7 @@ struct tasklist_ent *tasks;
 struct tasklist_ent *nc_selected_task;
 
 static void
-add_task(struct download_task *t)
+add_task(struct task *t)
 {
 	struct tasklist_ent *ent = malloc(sizeof(struct tasklist_ent));
 
@@ -57,7 +57,7 @@ add_task(struct download_task *t)
 		return;
 	}
 
-	ent->t = malloc(sizeof(struct download_task));
+	ent->t = malloc(sizeof(struct task));
 
 	if (!ent->t)
 	{
@@ -65,7 +65,7 @@ add_task(struct download_task *t)
 		return;
 	}
 
-	memcpy(ent->t, t, sizeof(struct download_task));
+	memcpy(ent->t, t, sizeof(struct task));
 
 	ent->next = tasks;
 	ent->prev = NULL;
@@ -193,10 +193,10 @@ nc_status(const char *fmt, ...)
 	strftime(buf, sizeof(buf), "%H:%M", localtime(&now));
 
 	mvwhline(status, 0, 1, ' ', COLS);
+	mvwprintw(status, 0, 1, "[%s]", buf);
 
 	va_list args;
 	va_start(args, fmt);
-	mvwprintw(status, 0, 1, "[%s]", buf);
 	mvwprintw(status, 0, 10, fmt, args);
 	va_end(args);
 
@@ -221,7 +221,7 @@ static void
 nc_print_tasks()
 {
 	struct tasklist_ent *tmp;
-	struct download_task *t;
+	struct task *t;
 	int i, tn_width, total_dn, total_up;
 	char fmt[16];
 	char buf[32];
@@ -262,16 +262,20 @@ nc_print_tasks()
 			mvwprintw(list, i, COLS - 1, "<");
 		}
 
+		/* file name */
 		mvwprintw(list, i, 1, fmt, t->fn);
+
+		/* size */
 		unit(t->size, buf, sizeof(buf));
 		mvwprintw(list, i, tn_width + 2, "%-5s", buf);
 
+		/* status */
 		nc_status_color(t->status, list);
 		mvwprintw(list, i, tn_width + 7, "%-11s", t->status);
 		nc_status_color_off(t->status, list);
 
+		/* percent */
 		mvwprintw(list, i, tn_width + 19, "%3d%%", t->percent_dn);
-		wattroff(list, A_BOLD);
 
 		wattroff(list, COLOR_PAIR(2));
 		wattroff(list, A_BOLD);
@@ -288,6 +292,44 @@ nc_print_tasks()
 	wmove(list, i, 0);
 	wclrtobot(list);
 	wrefresh(list);
+}
+
+
+static void
+nc_alert(const char *text)
+{
+	WINDOW *win, *ok;
+	int width;
+
+	width = strlen(text) + 4;
+
+	win = newwin(5, width, (LINES / 2) - 3, ((COLS - width) / 2));
+	wattron(win, COLOR_PAIR(11));
+	wbkgd(win, COLOR_PAIR(11));
+	box(win, 0, 0);
+
+	mvwprintw(win, 1, 2, "%s", text);
+
+	wattroff(win, COLOR_PAIR(2));
+	wrefresh(win);
+
+	nc_status("Alert");
+
+	ok = derwin(win, 1, 6, 3, (width / 2 ) - 3);
+	wprintw(ok, "[ Ok ]");
+	wbkgd(ok, COLOR_PAIR(10));
+
+	wrefresh(ok);
+
+	keypad(win, TRUE);
+
+	while (wgetch(win) != 10) {}
+
+	delwin(ok);
+	delwin(win);
+
+	touchwin(list);
+	nc_print_tasks();
 }
 
 static void
@@ -347,21 +389,6 @@ nc_select_next()
 }
 
 static void
-nc_title_bar()
-{
-	if (version)
-	{
-		delwin(version);
-	}
-
-	version = newwin(1, COLS, 0, 0);
-	wattron(version, COLOR_PAIR(1));
-	wbkgd(version, COLOR_PAIR(1));
-	wprintw(version, " %s. Type '?' for help information.", PACKAGE_NAME);
-	wrefresh(version);
-}
-
-static void
 nc_status_bar()
 {
 	if (status)
@@ -395,7 +422,6 @@ void handle_winch(int sig)
 	refresh();
 	clear();
 
-	nc_title_bar();
 	nc_status_bar();
 	nc_task_window();
 	nc_print_tasks();
@@ -432,7 +458,6 @@ nc_init()
 	init_pair(10, COLOR_BLACK, COLOR_WHITE);
 	init_pair(11, COLOR_WHITE, COLOR_RED);
 
-	nc_title_bar();
 	nc_status_bar();
 	nc_task_window();
 }
@@ -518,14 +543,16 @@ nc_add_task(struct syno_ui *ui, const char *base, struct session *s)
 	delwin(prompt);
 	delwin(win);
 
-	if (strcmp(str, "") == 0)
+	if (strcmp(str, "") != 0)
 	{
-		nc_status("Aborted");
-	}
-	else
-	{
-		syno_download(ui, base, s, str);
-		nc_status("Download task added");
+		if (syno_download(base, s, str) != 0)
+		{
+			nc_alert("Failed to add task");
+		}
+		else
+		{
+			nc_status("Download task added");
+		}
 	}
 
 	touchwin(list);
@@ -608,7 +635,15 @@ nc_delete_task(struct syno_ui *ui, const char *base, struct session *s)
 	if (ok)
 	{
 		snprintf(buf, sizeof(buf), "%s", nc_selected_task->t->id);
-		syno_delete(ui, base, s, buf);
+
+		if (syno_delete(base, s, buf) != 0)
+		{
+			nc_alert("Failed to delete task");
+		}
+		else
+		{
+			nc_status("Download task added");
+		}
 	}
 
 	touchwin(list);
@@ -660,8 +695,15 @@ nc_loop(struct syno_ui *ui, const char *base, struct session *s)
 		case 114: /* r */
 		case 82:  /* R */
 			nc_status("Refreshing...");
-			syno_info(ui, base, s);
-			nc_print_tasks();
+			free_tasks();
+			if (syno_list(base, s, add_task) != 0)
+			{
+				nc_alert("Could not refresh data");
+			}
+			else
+			{
+				nc_print_tasks();
+			}
 			break;
 		default:
 			break;
@@ -721,7 +763,7 @@ static void
 cs_print_tasks()
 {
 	struct tasklist_ent *tmp;
-	struct download_task *t;
+	struct task *t;
 
 	for (tmp = tasks; tmp != NULL; tmp = tmp->next)
 	{
