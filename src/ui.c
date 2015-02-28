@@ -222,7 +222,7 @@ nc_print_tasks()
 {
 	struct tasklist_ent *tmp;
 	struct download_task *t;
-	int percent, i, tn_width, total_dn, total_up;
+	int i, tn_width, total_dn, total_up;
 	char fmt[16];
 	char buf[32];
 
@@ -252,15 +252,6 @@ nc_print_tasks()
 		total_dn += t->speed_dn;
 		total_up += t->speed_up;
 
-		if ((t->size == 0) || (t->downloaded == 0))
-		{
-			percent = 0;
-		}
-		else
-		{
-			percent = (((float) t->downloaded / t->size) * 100);
-		}
-
 		wmove(list, i, 0);
 		wclrtoeol(list);
 
@@ -279,7 +270,7 @@ nc_print_tasks()
 		mvwprintw(list, i, tn_width + 7, "%-11s", t->status);
 		nc_status_color_off(t->status, list);
 
-		mvwprintw(list, i, tn_width + 19, "%3d%%", percent);
+		mvwprintw(list, i, tn_width + 19, "%3d%%", t->percent_dn);
 		wattroff(list, A_BOLD);
 
 		wattroff(list, COLOR_PAIR(2));

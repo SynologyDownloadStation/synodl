@@ -87,7 +87,7 @@ json_load_login(json_object *obj, struct session *s)
 }
 
 static void
-json_load_torrents(json_object *obj, struct session *s, struct syno_ui *ui)
+json_load_tasks(json_object *obj, struct session *s, struct syno_ui *ui)
 {
 	json_object *data, *tasks, *task, *tmp, *additional, *transfer;
 	struct download_task dt;
@@ -144,15 +144,16 @@ json_load_torrents(json_object *obj, struct session *s, struct syno_ui *ui)
 							"size_downloaded");
 			dt.downloaded = json_object_get_int(tmp);
 
-			if (!strcmp(dt.status, "downloading"))
-			{
-				tmp = json_object_object_get(transfer,
-							"speed_download");
-				dt.speed_dn = json_object_get_int(tmp);
+			tmp = json_object_object_get(transfer,"speed_download");
+			dt.speed_dn = json_object_get_int(tmp);
 
-				tmp = json_object_object_get(transfer,
-							"speed_upload");
-				dt.speed_up = json_object_get_int(tmp);
+			tmp = json_object_object_get(transfer, "speed_upload");
+			dt.speed_up = json_object_get_int(tmp);
+
+			if ((dt.size != 0) && (dt.downloaded != 0))
+			{
+				dt.percent_dn = ((float)dt.downloaded / dt.size)
+									* 100;
 			}
 		}
 
@@ -192,7 +193,7 @@ session_load(struct string *st, struct session *session)
 }
 
 static int
-torrents_receive(struct string *st, struct syno_ui *ui)
+tasks_receive(struct string *st, struct syno_ui *ui)
 {
 	json_tokener *tok;
 	json_object *obj;
@@ -214,7 +215,7 @@ torrents_receive(struct string *st, struct syno_ui *ui)
 		return 1;
 	}
 
-	json_load_torrents(obj, NULL, ui);
+	json_load_tasks(obj, NULL, ui);
 	json_object_put(obj);
 	return 0;
 }
@@ -312,7 +313,6 @@ syno_login(struct syno_ui *ui, const char *base, struct session *s,
 	char url[1024];
 	struct string st;
 
-//	printf("API login at %s\n", base);
 	ui->status("Logging in...");
 
 	init_string(&st);
@@ -384,7 +384,7 @@ syno_info(struct syno_ui *ui, const char *base, struct session *s)
 	}
 
 	ui->free();
-	res = torrents_receive(&st, ui);
+	res = tasks_receive(&st, ui);
 	ui->render();
 	free_string(&st);
 

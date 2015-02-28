@@ -31,6 +31,7 @@ struct download_task
 	int uploaded;
 	int speed_dn;
 	int speed_up;
+	int percent_dn;
 };
 
 #endif
