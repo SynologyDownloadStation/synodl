@@ -608,6 +608,14 @@ nc_delete_task(struct syno_ui *ui, const char *base, struct session *s)
 		case KEY_RIGHT:
 			ok = 1;
 			break;
+		case 0x59: /* Y */
+		case 0x79: /* y */
+			ok = 1;
+			break;
+		case 0x4e: /* N */
+		case 0x6e: /* n */
+			ok = 0;
+			break;
 		default:
 			snprintf(buf, sizeof(buf), "%d", key);
 			nc_status(buf);
