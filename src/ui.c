@@ -616,10 +616,6 @@ nc_delete_task(struct syno_ui *ui, const char *base, struct session *s)
 		case 0x6e: /* n */
 			ok = 0;
 			break;
-		default:
-			snprintf(buf, sizeof(buf), "%d", key);
-			nc_status(buf);
-			break;
 		}
 
 		if (ok)
