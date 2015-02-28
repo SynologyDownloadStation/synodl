@@ -475,7 +475,7 @@ nc_help()
 {
 	WINDOW *win, *help;
 
-	win = newwin(8, 32, (LINES / 2) - 10, (COLS / 2) - 16);
+	win = newwin(8, 32, (LINES / 2) - 4, (COLS / 2) - 16);
 	wattron(win, COLOR_PAIR(1));
 	wbkgd(win, COLOR_PAIR(1));
 	box(win, 0, 0);
