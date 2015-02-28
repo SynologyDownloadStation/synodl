@@ -223,7 +223,6 @@ nc_print_tasks()
 	struct tasklist_ent *tmp;
 	struct download_task *t;
 	int percent, i, tn_width, total_dn, total_up;
-	char speed[80];
 	char fmt[16];
 	char buf[32];
 
@@ -249,12 +248,9 @@ nc_print_tasks()
 	for (tmp = tasks; tmp != NULL; tmp = tmp->next)
 	{
 		t = tmp->t;
-		memset(speed, 0, sizeof(speed));
 
 		total_dn += t->speed_dn;
 		total_up += t->speed_up;
-
-		wmove(list, 0, i);
 
 		if ((t->size == 0) || (t->downloaded == 0))
 		{
@@ -265,46 +261,26 @@ nc_print_tasks()
 			percent = (((float) t->downloaded / t->size) * 100);
 		}
 
+		wmove(list, i, 0);
+		wclrtoeol(list);
+
 		if (tmp == nc_selected_task)
 		{
-//			wattron(list, COLOR_PAIR(2));
 			wattron(list, A_BOLD);
-//			mvwhline(list, i, 0, '>', COLS);
 			mvwprintw(list, i, 0, ">");
-			mvwprintw(list, i, COLS-1, "<");
-		}
-		else
-		{
-//			wattron(list, A_BOLD);
-			mvwhline(list, i, 0, ' ', COLS);
+			mvwprintw(list, i, COLS - 1, "<");
 		}
 
 		mvwprintw(list, i, 1, fmt, t->fn);
-//		wattroff(list, A_BOLD);
-
 		unit(t->size, buf, sizeof(buf));
 		mvwprintw(list, i, tn_width + 2, "%-5s", buf);
 
-//		if (tmp != nc_selected_task)
-//		{
-			nc_status_color(t->status, list);
-//		}
+		nc_status_color(t->status, list);
 		mvwprintw(list, i, tn_width + 7, "%-11s", t->status);
-//		if (tmp != nc_selected_task)
-//		{
-			nc_status_color_off(t->status, list);
-//		}
-		mvwprintw(list, i, tn_width + 19, "%3d%%", percent);
+		nc_status_color_off(t->status, list);
 
-		if (tmp != nc_selected_task)
-		{
-			wattroff(list, A_BOLD);
-		}
-		if (!strcmp(t->status, "downloading"))
-		{
-			snprintf(speed, sizeof(speed), ", D: %d B/s, U: %d B/s",
-						t->speed_dn, t->speed_up);
-		}
+		mvwprintw(list, i, tn_width + 19, "%3d%%", percent);
+		wattroff(list, A_BOLD);
 
 		wattroff(list, COLOR_PAIR(2));
 		wattroff(list, A_BOLD);
@@ -317,8 +293,8 @@ nc_print_tasks()
 	}
 
 	nc_status_totals(total_up, total_dn);
-	wmove(list, i, 0);
 
+	wmove(list, i, 0);
 	wclrtobot(list);
 	wrefresh(list);
 }
