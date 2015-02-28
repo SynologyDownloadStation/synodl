@@ -566,15 +566,81 @@ nc_add_task(struct syno_ui *ui, const char *base, struct session *s)
 static void
 nc_delete_task(struct syno_ui *ui, const char *base, struct session *s)
 {
+	WINDOW *win, *yes, *no;
 	char buf[16];
+	int ok, key;
 
 	if (!nc_selected_task)
 	{
 		return;
 	}
 
-	snprintf(buf, sizeof(buf), "%s", nc_selected_task->t->id);
-	syno_delete(ui, base, s, buf);
+	win = newwin(5, 21, (LINES / 2) - 3, (COLS / 2) - 10);
+	wattron(win, COLOR_PAIR(11));
+	wbkgd(win, COLOR_PAIR(11));
+	box(win, 0, 0);
+	mvwprintw(win, 0, 5, "[ Delete ]");
+	mvwprintw(win, 1, 2, "Delete this task?");
+	wattroff(win, COLOR_PAIR(2));
+	wrefresh(win);
+
+	no = derwin(win, 1, 6, 3, 3);
+	wprintw(no, "[ No ]");
+
+	yes = derwin(win, 1, 7, 3, 11);
+	wprintw(yes, "[ Yes ]");
+
+	touchwin(win);
+	wrefresh(no);
+	wrefresh(yes);
+
+	wbkgd(no, COLOR_PAIR(10));
+	keypad(win, TRUE);
+
+	ok = 0;
+
+	while ((key = wgetch(win)) != 10)
+	{
+		switch (key)
+		{
+		case 9: /* TAB */
+			ok = 1 - ok;
+			break;
+		case KEY_LEFT:
+			ok = 0;
+			break;
+		case KEY_RIGHT:
+			ok = 1;
+			break;
+		default:
+			snprintf(buf, sizeof(buf), "%d", key);
+			nc_status(buf);
+			break;
+		}
+
+		if (ok)
+		{
+			wbkgd(no, COLOR_PAIR(11));
+			wbkgd(yes, COLOR_PAIR(10));
+		}
+		else
+		{
+			wbkgd(no, COLOR_PAIR(10));
+			wbkgd(yes, COLOR_PAIR(11));
+		}
+		wrefresh(no);
+		wrefresh(yes);
+	}
+
+	delwin(no);
+	delwin(yes);
+	delwin(win);
+
+	if (ok)
+	{
+		snprintf(buf, sizeof(buf), "%s", nc_selected_task->t->id);
+		syno_delete(ui, base, s, buf);
+	}
 
 	touchwin(list);
 	nc_print_tasks();
