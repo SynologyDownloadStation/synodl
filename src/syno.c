@@ -472,3 +472,30 @@ syno_resume(struct syno_ui *ui, const char *base, struct session *s,
 	free_string(&st);
 	return res;
 }
+
+int
+syno_delete(struct syno_ui *ui, const char *base, struct session *s,
+								const char *ids)
+{
+	char url[1024];
+	int res;
+	struct string st;
+
+	init_string(&st);
+
+	snprintf(url, sizeof(url), "%s/webapi/DownloadStation/task.cgi?"
+				"api=SYNO.DownloadStation.Task&version=1"
+				"&method=delete&id=%s&_sid=%s", base, ids,
+				s->sid);
+
+	if (curl_do(url, s, &st) != 0)
+	{
+		free_string(&st);
+		return 1;
+	}
+
+	dump_reply(&st);
+
+	free_string(&st);
+	return res;
+}

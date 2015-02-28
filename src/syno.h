@@ -38,5 +38,6 @@ int syno_pause(struct syno_ui *ui, const char *base, struct session *s,
 							const char *ids);
 int syno_resume(struct syno_ui *ui, const char *base, struct session *s,
 							const char *ids);
-
+int syno_delete(struct syno_ui *ui, const char *base, struct session *s,
+							const char *ids);
 #endif

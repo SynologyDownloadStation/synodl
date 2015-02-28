@@ -212,7 +212,8 @@ nc_status_totals(int up, int dn)
 
 	unit(up, up_buf, sizeof(up_buf));
 	unit(dn, dn_buf, sizeof(dn_buf));
-	snprintf(speed, sizeof(speed), "u %s/s, d %s/s", up_buf, dn_buf);
+	snprintf(speed, sizeof(speed), "↑ %s/s, ↓ %s/s.  Press '?' for help.",
+								up_buf, dn_buf);
 	return nc_status(speed);
 }
 
@@ -235,7 +236,7 @@ nc_print_tasks()
 
 	wattron(list, COLOR_PAIR(10));
 	mvwprintw(list, i, 0, " ");
-	mvwprintw(list, i, 1, fmt, "Task");
+	mvwprintw(list, i, 1, fmt, "Download task");
 	mvwprintw(list, i, tn_width + 2, "Size");
 	mvwprintw(list, i, tn_width + 7, "%-11.11s Prog ", "Status");
 	mvwhline(list, i, tn_width + 1, ACS_VLINE, 1);
@@ -266,29 +267,33 @@ nc_print_tasks()
 
 		if (tmp == nc_selected_task)
 		{
-			wattron(list, COLOR_PAIR(2));
+//			wattron(list, COLOR_PAIR(2));
+			wattron(list, A_BOLD);
+//			mvwhline(list, i, 0, '>', COLS);
+			mvwprintw(list, i, 0, ">");
+			mvwprintw(list, i, COLS-1, "<");
 		}
 		else
 		{
-			wattron(list, A_BOLD);
+//			wattron(list, A_BOLD);
+			mvwhline(list, i, 0, ' ', COLS);
 		}
 
-		mvwhline(list, i, 0, ' ', COLS);
 		mvwprintw(list, i, 1, fmt, t->fn);
-		wattroff(list, A_BOLD);
+//		wattroff(list, A_BOLD);
 
 		unit(t->size, buf, sizeof(buf));
 		mvwprintw(list, i, tn_width + 2, "%-5s", buf);
 
-		if (tmp != nc_selected_task)
-		{
+//		if (tmp != nc_selected_task)
+//		{
 			nc_status_color(t->status, list);
-		}
+//		}
 		mvwprintw(list, i, tn_width + 7, "%-11s", t->status);
-		if (tmp != nc_selected_task)
-		{
+//		if (tmp != nc_selected_task)
+//		{
 			nc_status_color_off(t->status, list);
-		}
+//		}
 		mvwprintw(list, i, tn_width + 19, "%3d%%", percent);
 
 		if (tmp != nc_selected_task)
@@ -302,6 +307,7 @@ nc_print_tasks()
 		}
 
 		wattroff(list, COLOR_PAIR(2));
+		wattroff(list, A_BOLD);
 
 		mvwhline(list, i, tn_width + 1, ACS_VLINE, 1);
 		mvwhline(list, i, tn_width + 6, ACS_VLINE, 1);
@@ -410,7 +416,7 @@ nc_task_window()
 		delwin(list);
 	}
 
-	list = newwin(LINES - 2, COLS, 1, 0);
+	list = newwin(LINES - 1, COLS, 0, 0);
 	wrefresh(list);
 }
 
@@ -455,6 +461,7 @@ nc_init()
 	init_pair(8, COLOR_MAGENTA, COLOR_BLACK);
 	init_pair(9, COLOR_BLACK, COLOR_CYAN);
 	init_pair(10, COLOR_BLACK, COLOR_WHITE);
+	init_pair(11, COLOR_WHITE, COLOR_RED);
 
 	nc_title_bar();
 	nc_status_bar();
@@ -474,19 +481,23 @@ nc_help()
 {
 	WINDOW *win, *help;
 
-	win = newwin(7, 40, (LINES / 2) - 10, (COLS / 2) - 20);
+	win = newwin(8, 32, (LINES / 2) - 10, (COLS / 2) - 16);
 	wattron(win, COLOR_PAIR(1));
 	wbkgd(win, COLOR_PAIR(1));
 	box(win, 0, 0);
-	mvwprintw(win, 0, 9, "[ Keyboard shortcuts ]");
+	mvwprintw(win, 0, 5, "[ Keyboard shortcuts ]");
 	wattroff(win, COLOR_PAIR(2));
 	wrefresh(win);
 
-	help = derwin(win, 3, 24, 2, 8);
+	help = derwin(win, 4, 28, 2, 3);
 	wattron(help, A_BOLD);
 	wprintw(help, "A");
 	wattroff(help, A_BOLD);
 	wprintw(help, " ... Add download task\n");
+	wattron(help, A_BOLD);
+	wprintw(help, "D");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... Delete selected task\n");
 	wattron(help, A_BOLD);
 	wprintw(help, "Q");
 	wattroff(help, A_BOLD);
@@ -553,6 +564,23 @@ nc_add_task(struct syno_ui *ui, const char *base, struct session *s)
 }
 
 static void
+nc_delete_task(struct syno_ui *ui, const char *base, struct session *s)
+{
+	char buf[16];
+
+	if (!nc_selected_task)
+	{
+		return;
+	}
+
+	snprintf(buf, sizeof(buf), "%s", nc_selected_task->t->id);
+	syno_delete(ui, base, s, buf);
+
+	touchwin(list);
+	nc_print_tasks();
+}
+
+static void
 nc_loop(struct syno_ui *ui, const char *base, struct session *s)
 {
 	int key;
@@ -584,6 +612,11 @@ nc_loop(struct syno_ui *ui, const char *base, struct session *s)
 		case 65:  /* A */
 			nc_status("Adding task...");
 			nc_add_task(ui, base, s);
+			break;
+		case 100: /* d */
+		case 68:  /* D */
+			nc_status("Deleting task...");
+			nc_delete_task(ui, base, s);
 			break;
 		case 113: /* q */
 		case 81:  /* Q */

@@ -23,6 +23,8 @@ class AuthHandler(RequestHandler):
 
 class TaskHandler(RequestHandler):
 
+	tasks = []
+
 	def get(self):
 
 		res = {}
@@ -31,37 +33,29 @@ class TaskHandler(RequestHandler):
 		res['success'] = True;
 
 		method = self.get_argument('method')
-		if method == 'list':
-			tasks = []
-			tasks.append({
-				'id': 1,
-				'title': 'test 1',
-				'status': 'downloading',
-				'size': 1234,
-				'additional': {
-					'transfer': {
-						'size_downloaded': 500,
-						'size_uploaded': 250,
-						'speed_download': 100,
-						'speed_upload': 50,
-					}
-				}
-			})
-			tasks.append({
-				'id': 1,
-				'title': 'test 2',
-				'status': 'paused',
-				'size': 1234567,
-				'additional': {
-					'transfer': {
-						'size_downloaded': 900000,
-						'size_uploaded': 25000,
-						'speed_download': 100,
-						'speed_upload': 50,
-					}
-				}
-			})
-			data['tasks'] = tasks
+
+		print(method)
+
+		if method == 'create':
+			task = {}
+			task['id'] = len(self.tasks)
+			task['title'] = self.get_argument('uri')
+			task['status'] = 'downloading'
+			task['size'] = 1234
+
+			transfer = {}
+			transfer['size_downloaded'] = 500
+			transfer['size_uploaded'] = 250
+			transfer['speed_download'] = 1000
+			transfer['speed_upload'] = 50
+
+			task['additional'] = { 'transfer': transfer }
+			self.tasks.append(task)
+		elif method == 'delete':
+			id = int(self.get_argument('id'))
+			del(self.tasks[id])
+		elif method == 'list':
+			data['tasks'] = self.tasks
 
 		res['data'] = data
 		self.write(json.dumps(res))

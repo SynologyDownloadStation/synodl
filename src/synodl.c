@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <getopt.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,6 +50,8 @@ int main(int argc, char **argv)
 	struct cfg config;
 	struct session s;
 	struct syno_ui ui;
+
+	setlocale(LC_ALL, "");
 
 	struct option long_options[] =
 	{
