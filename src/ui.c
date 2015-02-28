@@ -317,7 +317,9 @@ nc_print_tasks()
 	}
 
 	nc_status_totals(total_up, total_dn);
+	wmove(list, i, 0);
 
+	wclrtobot(list);
 	wrefresh(list);
 }
 
