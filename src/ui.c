@@ -473,17 +473,21 @@ nc_stop()
 static void
 nc_help()
 {
+	int h, w;
 	WINDOW *win, *help;
 
-	win = newwin(8, 32, (LINES / 2) - 4, (COLS / 2) - 16);
+	h = 10;
+	w = 33;
+
+	win = newwin(h, w, ((LINES - h) / 2), ((COLS - w) / 2));
 	wattron(win, COLOR_PAIR(1));
 	wbkgd(win, COLOR_PAIR(1));
 	box(win, 0, 0);
-	mvwprintw(win, 0, 5, "[ Keyboard shortcuts ]");
+	mvwprintw(win, 0, (w - 22) / 2, "[ Keyboard shortcuts ]");
 	wattroff(win, COLOR_PAIR(2));
 	wrefresh(win);
 
-	help = derwin(win, 4, 28, 2, 3);
+	help = derwin(win, h - 3, w - 6, 2, 3);
 	wattron(help, A_BOLD);
 	wprintw(help, "A");
 	wattroff(help, A_BOLD);
@@ -500,6 +504,9 @@ nc_help()
 	wprintw(help, "R");
 	wattroff(help, A_BOLD);
 	wprintw(help, " ... Refresh list\n");
+
+	wprintw(help, "\nThis is %s\n", PACKAGE_STRING);
+	wprintw(help, "github.com/cockroach/synodl");
 
 	touchwin(win);
 	wrefresh(help);
