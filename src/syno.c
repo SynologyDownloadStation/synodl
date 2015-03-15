@@ -303,6 +303,7 @@ curl_recv(void *ptr, size_t size, size_t nmemb, struct string *s)
 	}
 
 	memcpy(s->ptr + pos, ptr, size * nmemb);
+	s->ptr[s->size - 1] = 0;
 	return size * nmemb;
 }
 
