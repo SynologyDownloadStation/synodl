@@ -23,18 +23,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "syno.h"
 
-struct syno_ui
-{
-	void (*init)();
-	void (*stop)();
-	int (*status)(const char *fmt, ...);
-	void (*loop)(struct syno_ui *ui, const char *base, struct session *s);
-	void (*add_task)(struct task *t);
-	void (*free)();
-	void (*render)();
-};
+void init_ui();
+void free_ui();
+void main_loop(const char *base, struct session *s);
+void ui_add_task(const char *base, struct session *s, const char *task);
 
-void console_ui();
-void curses_ui();
+void tasks_free();
+void tasks_add(struct task *t);
 
 #endif
