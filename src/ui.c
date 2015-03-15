@@ -108,7 +108,7 @@ noop()
 	Curses UI
 */
 
-static WINDOW *status, *list, *version;
+static WINDOW *status, *list, *version, *header;
 
 static void
 nc_status_color(const char *status, WINDOW *win)
@@ -217,33 +217,41 @@ nc_status_totals(int up, int dn)
 	return nc_status(speed);
 }
 
+static int
+selected_position()
+{
+	int pos = 0;
+	struct tasklist_ent *tmp;
+
+	for (tmp = tasks; tmp != NULL; tmp = tmp->next)
+	{
+		if (tmp == nc_selected_task)
+		{
+			return pos;
+		}
+
+		pos += 1;
+	}
+
+	return pos;
+}
+
 static void
 nc_print_tasks()
 {
 	struct tasklist_ent *tmp;
 	struct task *t;
-	int i, tn_width, total_dn, total_up;
+	int i, tn_width, total_dn, total_up, pos, pagenum;
 	char fmt[16];
 	char buf[32];
 
 	i = 0;
 	total_dn = 0;
 	total_up = 0;
+	pos = selected_position();
 
 	tn_width = COLS - 24;
 	snprintf(fmt, sizeof(fmt), "%%-%d.%ds", tn_width, tn_width);
-
-	wattron(list, COLOR_PAIR(10));
-	mvwprintw(list, i, 0, " ");
-	mvwprintw(list, i, 1, fmt, "Download task");
-	mvwprintw(list, i, tn_width + 2, "Size");
-	mvwprintw(list, i, tn_width + 7, "%-11.11s Prog ", "Status");
-	mvwhline(list, i, tn_width + 1, ACS_VLINE, 1);
-	mvwhline(list, i, tn_width + 6, ACS_VLINE, 1);
-	mvwhline(list, i, tn_width + 18, ACS_VLINE, 1);
-	wattroff(list, COLOR_PAIR(10));
-
-	i += 1;
 
 	for (tmp = tasks; tmp != NULL; tmp = tmp->next)
 	{
@@ -287,13 +295,13 @@ nc_print_tasks()
 		i++;
 	}
 
-	nc_status_totals(total_up, total_dn);
-
 	wmove(list, i, 0);
 	wclrtobot(list);
-	wrefresh(list);
-}
+	nc_status_totals(total_up, total_dn);
 
+	pagenum = pos / (LINES - 2);
+	prefresh(list, pagenum * (LINES - 2), 0, 1, 0, LINES - 2, COLS);
+}
 
 static void
 nc_alert(const char *text)
@@ -389,6 +397,42 @@ nc_select_next()
 }
 
 static void
+nc_select_prev_page()
+{
+	int skipped;
+
+	if (!nc_selected_task)
+	{
+		return;
+	}
+
+	skipped = 0;
+
+	while (nc_selected_task->prev && (skipped++ < (LINES - 2)))
+	{
+		nc_selected_task = nc_selected_task->prev;
+	}
+}
+
+static void
+nc_select_next_page()
+{
+	int skipped;
+
+	if (!nc_selected_task)
+	{
+		return;
+	}
+
+	skipped = 0;
+
+	while (nc_selected_task->next && (skipped++ < (LINES - 2)))
+	{
+		nc_selected_task = nc_selected_task->next;
+	}
+}
+
+static void
 nc_status_bar()
 {
 	if (status)
@@ -405,14 +449,48 @@ nc_status_bar()
 }
 
 static void
+nc_header()
+{
+	char fmt[16];
+	int tn_width;
+
+	if (header)
+	{
+		delwin(header);
+	}
+
+	tn_width = COLS - 24;
+	snprintf(fmt, sizeof(fmt), "%%-%d.%ds", tn_width, tn_width);
+
+	header = newwin(1, COLS, 0, 0);
+
+	wattron(header, COLOR_PAIR(10));
+	mvwprintw(header, 0, 0, " ");
+	mvwprintw(header, 0, 1, fmt, "Download task");
+	mvwprintw(header, 0, tn_width + 2, "Size");
+	mvwprintw(header, 0, tn_width + 7, "%-11.11s Prog ", "Status");
+	mvwhline(header, 0, tn_width + 1, ACS_VLINE, 1);
+	mvwhline(header, 0, tn_width + 6, ACS_VLINE, 1);
+	mvwhline(header, 0, tn_width + 18, ACS_VLINE, 1);
+	wattroff(header, COLOR_PAIR(10));
+
+	wrefresh(header);
+}
+
+static void
 nc_task_window()
 {
+	int nentries;
+
 	if (list)
 	{
 		delwin(list);
 	}
 
-	list = newwin(LINES - 1, COLS, 0, 0);
+	nentries = 1024;
+
+	/* TODO: do not use a fixed number */
+	list = newpad(nentries, COLS);
 	wrefresh(list);
 }
 
@@ -422,6 +500,7 @@ void handle_winch(int sig)
 	refresh();
 	clear();
 
+	nc_header();
 	nc_status_bar();
 	nc_task_window();
 	nc_print_tasks();
@@ -458,6 +537,7 @@ nc_init()
 	init_pair(10, COLOR_BLACK, COLOR_WHITE);
 	init_pair(11, COLOR_WHITE, COLOR_RED);
 
+	nc_header();
 	nc_status_bar();
 	nc_task_window();
 }
@@ -467,6 +547,7 @@ nc_stop()
 {
 	delwin(version);
 	delwin(status);
+	delwin(header);
 	endwin();
 }
 
@@ -676,6 +757,14 @@ nc_loop(struct syno_ui *ui, const char *base, struct session *s)
 			break;
 		case KEY_DOWN:
 			nc_select_next();
+			nc_print_tasks();
+			break;
+		case KEY_PPAGE:
+			nc_select_prev_page();
+			nc_print_tasks();
+			break;
+		case KEY_NPAGE:
+			nc_select_next_page();
 			nc_print_tasks();
 			break;
 		case KEY_HOME:
