@@ -20,6 +20,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <string.h>
 #include <curl/curl.h>
+
+#include "config.h"
+
 #ifdef HAVE_JSON_C
 #include <json-c/json.h>
 #include <json-c/json_tokener.h>
@@ -64,8 +67,7 @@ json_check_success(json_object *obj)
 	json_object *success;
 	int login_success;
 
-	success = json_object_object_get(obj, "success");
-	if (!success)
+	if (!json_object_object_get_ex(obj, "success", &success))
 	{
 		fprintf(stderr, "Value 'success' missing from %s\n",
 						json_object_get_string(obj));
@@ -92,15 +94,14 @@ json_load_login(json_object *obj, struct session *s)
 		return 1;
 	}
 
-	data = json_object_object_get(obj, "data");
-	if (!data)
+	if (!json_object_object_get_ex(obj, "data", &data))
 	{
 		fprintf(stderr, "Value 'data' missing from %s\n",
 						json_object_get_string(obj));
 		return 1;
 	}
 
-	sid = json_object_object_get(data, "sid");
+	json_object_object_get_ex(data, "sid", &sid);
 	snprintf(s->sid, sizeof(s->sid), "%s", json_object_get_string(sid));
 
 	return 0;
@@ -118,16 +119,14 @@ json_load_tasks(json_object *obj, void (*cb)(struct task *))
 		return 1;
 	}
 
-	data = json_object_object_get(obj, "data");
-	if (!data)
+	if (!json_object_object_get_ex(obj, "data", &data))
 	{
 		fprintf(stderr, "Value 'data' missing from %s\n",
 						json_object_get_string(obj));
 		return 1;
 	}
 
-	tasks = json_object_object_get(data, "tasks");
-	if (!tasks)
+	if (!json_object_object_get_ex(data, "tasks", &tasks))
 	{
 		fprintf(stderr, "No tasks found\n");
 		return 1;
@@ -145,34 +144,34 @@ json_load_tasks(json_object *obj, void (*cb)(struct task *))
 
 		task = json_object_array_get_idx(tasks, i);
 
-		tmp = json_object_object_get(task, "id");
+		json_object_object_get_ex(task, "id", &tmp);
 		snprintf(dt.id, sizeof(dt.id), "%s",
 						json_object_get_string(tmp));
 
-		tmp = json_object_object_get(task, "title");
+		json_object_object_get_ex(task, "title", &tmp);
 		snprintf(dt.fn, sizeof(dt.fn), "%s",
 						json_object_get_string(tmp));
 
-		tmp = json_object_object_get(task, "status");
+		json_object_object_get_ex(task, "status", &tmp);
 		snprintf(dt.status, sizeof(dt.status), "%s",
 						json_object_get_string(tmp));
 
-		tmp = json_object_object_get(task, "size");
+		json_object_object_get_ex(task, "size", &tmp);
 		dt.size = json_object_get_int(tmp);
 
-		additional = json_object_object_get(task, "additional");
-		transfer = json_object_object_get(additional, "transfer");
-
-		if (transfer)
+		json_object_object_get_ex(task, "additional", &additional);
+		if (json_object_object_get_ex(additional, "transfer", &transfer))
 		{
-			tmp = json_object_object_get(transfer,
-							"size_downloaded");
+			json_object_object_get_ex(transfer,
+						"size_downloaded", &tmp);
 			dt.downloaded = json_object_get_int(tmp);
 
-			tmp = json_object_object_get(transfer,"speed_download");
+			json_object_object_get_ex(transfer,
+						"speed_download", &tmp);
 			dt.speed_dn = json_object_get_int(tmp);
 
-			tmp = json_object_object_get(transfer, "speed_upload");
+			json_object_object_get_ex(transfer,
+							"speed_upload", &tmp);
 			dt.speed_up = json_object_get_int(tmp);
 
 			if ((dt.size != 0) && (dt.downloaded != 0))
@@ -182,7 +181,7 @@ json_load_tasks(json_object *obj, void (*cb)(struct task *))
 			}
 		}
 
-		tmp = json_object_object_get(transfer, "size_uploaded");
+		json_object_object_get_ex(transfer, "size_uploaded", &tmp);
 		dt.uploaded = json_object_get_int(tmp);
 
 		cb(&dt);
