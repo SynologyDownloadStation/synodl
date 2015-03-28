@@ -20,8 +20,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <string.h>
 #include <curl/curl.h>
+#ifdef HAVE_JSON_C
 #include <json-c/json.h>
 #include <json-c/json_tokener.h>
+#else
+#include <json/json.h>
+#include <json/json_tokener.h>
+#endif
 
 #include "syno.h"
 #include "ui.h"
