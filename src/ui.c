@@ -712,9 +712,11 @@ main_loop(const char *base, struct session *s)
 		switch (key)
 		{
 		case KEY_UP:
+		case 0x6b: /* k */
 			nc_select_prev();
 			nc_print_tasks();
 			break;
+		case 0x6a: /* j */
 		case KEY_DOWN:
 			nc_select_next();
 			nc_print_tasks();
