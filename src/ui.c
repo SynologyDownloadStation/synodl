@@ -456,7 +456,7 @@ nc_help()
 	int h, w;
 	WINDOW *win, *help;
 
-	h = 10;
+	h = 11;
 	w = 33;
 
 	win = newwin(h, w, ((LINES - h) / 2), ((COLS - w) / 2));
@@ -477,6 +477,10 @@ nc_help()
 	wattroff(help, A_BOLD);
 	wprintw(help, " ... Delete selected task\n");
 	wattron(help, A_BOLD);
+	wprintw(help, "I");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... Show task details\n");
+	wattron(help, A_BOLD);
 	wprintw(help, "Q");
 	wattroff(help, A_BOLD);
 	wprintw(help, " ... Quit\n");
@@ -487,6 +491,92 @@ nc_help()
 
 	wprintw(help, "\nThis is %s\n", PACKAGE_STRING);
 	wprintw(help, "github.com/cockroach/synodl");
+
+	touchwin(win);
+	wrefresh(help);
+
+	wgetch(help);
+
+	delwin(help);
+	delwin(win);
+
+	touchwin(list);
+	nc_print_tasks();
+}
+
+static void
+nc_task_details(const char *base, struct session *s)
+{
+	struct task *t;
+	double progress;
+
+	if (!nc_selected_task)
+	{
+		return;
+	}
+
+	t = nc_selected_task->t;
+
+	int h, w;
+	WINDOW *win, *help;
+
+	h = 10;
+	w = 41;
+
+	win = newwin(h, w, ((LINES - h) / 2), ((COLS - w) / 2));
+	wattron(win, COLOR_PAIR(1));
+	wbkgd(win, COLOR_PAIR(1));
+	box(win, 0, 0);
+	mvwprintw(win, 0, (w - 22) / 2, "[ Download task details ]");
+	wattroff(win, COLOR_PAIR(2));
+	wrefresh(win);
+
+	help = derwin(win, h - 3, w - 6, 2, 3);
+
+	/* status */
+	wattron(help, A_BOLD);
+	wprintw(help, "Status    ");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... %s\n", t->status);
+
+	/* size */
+	char buf[32];
+	snprintf(buf, sizeof(buf), "%d", t->size);
+	unit(t->size, buf, sizeof(buf));
+	wattron(help, A_BOLD);
+	wprintw(help, "Size      ");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... %s\n", buf);
+
+	/* downloaded */
+	snprintf(buf, sizeof(buf), "%d", t->downloaded);
+	unit(t->downloaded, buf, sizeof(buf));
+	progress = ((double) t->downloaded / t->size);
+	wattron(help, A_BOLD);
+	wprintw(help, "Downloaded");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... %s (%0.2f)\n", buf, progress);
+
+	/* uploaded */
+	snprintf(buf, sizeof(buf), "%d", t->uploaded);
+	unit(t->uploaded, buf, sizeof(buf));
+	progress = ((double) t->uploaded / t->size);
+	wattron(help, A_BOLD);
+	wprintw(help, "Uploaded  ");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... %s (%0.2f)\n", buf, progress);
+
+	/* speed down */
+	wattron(help, A_BOLD);
+	wprintw(help, "Speed down");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... %d\n", t->speed_dn);
+
+	/* speed down */
+	wattron(help, A_BOLD);
+	wprintw(help, "Speed up  ");
+	wattroff(help, A_BOLD);
+	wprintw(help, " ... %d\n", t->speed_up);
 
 	touchwin(win);
 	wrefresh(help);
@@ -540,7 +630,7 @@ nc_delete_task(const char *base, struct session *s)
 	{
 		switch (key)
 		{
-		case 9: /* TAB */
+		case 0x09: /* TAB */
 			ok = 1 - ok;
 			break;
 		case KEY_LEFT:
@@ -742,22 +832,26 @@ main_loop(const char *base, struct session *s)
 		case 0x3f: /* ? */
 			nc_help();
 			break;
-		case 97:  /* a */
-		case 65:  /* A */
+		case 0x61:  /* a */
+		case 0x41:  /* A */
 			nc_status("Adding task...");
 			ui_add_task(base, s, "");
 			break;
-		case 100: /* d */
-		case 68:  /* D */
+		case 0x64: /* d */
+		case 0x44:  /* D */
 			nc_status("Deleting task...");
 			nc_delete_task(base, s);
 			break;
-		case 113: /* q */
-		case 81:  /* Q */
+		case 0x69: /* i */
+		case 0x49: /* I */
+			nc_task_details(base, s);
+			break;
+		case 0x71: /* q */
+		case 0x51:  /* Q */
 			nc_status("Terminating...");
 			return;
-		case 114: /* r */
-		case 82:  /* R */
+		case 0x72: /* r */
+		case 0x52:  /* R */
 			nc_status("Refreshing...");
 			tasks_free();
 			if (syno_list(base, s, tasks_add) != 0)
