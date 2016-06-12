@@ -544,9 +544,11 @@ nc_delete_task(const char *base, struct session *s)
 			ok = 1 - ok;
 			break;
 		case KEY_LEFT:
+		case 0x68: /* h */
 			ok = 0;
 			break;
 		case KEY_RIGHT:
+		case 0x6c: /* l */
 			ok = 1;
 			break;
 		case 0x59: /* Y */
