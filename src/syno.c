@@ -523,8 +523,8 @@ syno_delete(const char *base, struct session *s, const char *ids)
 
 	snprintf(url, sizeof(url), "%s/webapi/DownloadStation/task.cgi?"
 				"api=SYNO.DownloadStation.Task&version=1"
-				"&method=delete&id=%s&_sid=%s", base, ids,
-				s->sid);
+				"&method=delete&id=%s&_sid=%s"
+				"&force_complete=false", base, ids, s->sid);
 
 	if (curl_do(url, s, &st) != 0)
 	{
