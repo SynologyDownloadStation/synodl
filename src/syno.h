@@ -21,6 +21,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef __SYNODL_SYNO_H
 #define __SYNODL_SYNO_H
 
+#include <inttypes.h>
+
 struct session
 {
 	char sid[24];
@@ -31,9 +33,9 @@ struct task
 	char id[16];
 	char fn[128];
 	char status[32];
-	int size;
-	int downloaded;
-	int uploaded;
+	int64_t size;
+	int64_t downloaded;
+	int64_t uploaded;
 	int speed_dn;
 	int speed_up;
 	int percent_dn;

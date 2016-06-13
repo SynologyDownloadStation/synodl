@@ -541,7 +541,7 @@ nc_task_details(const char *base, struct session *s)
 
 	/* size */
 	char buf[32];
-	snprintf(buf, sizeof(buf), "%d", t->size);
+	snprintf(buf, sizeof(buf), "%ld", t->size);
 	unit(t->size, buf, sizeof(buf));
 	wattron(help, A_BOLD);
 	wprintw(help, "Size      ");
@@ -549,7 +549,7 @@ nc_task_details(const char *base, struct session *s)
 	wprintw(help, " ... %s\n", buf);
 
 	/* downloaded */
-	snprintf(buf, sizeof(buf), "%d", t->downloaded);
+	snprintf(buf, sizeof(buf), "%ld", t->downloaded);
 	unit(t->downloaded, buf, sizeof(buf));
 	progress = ((double) t->downloaded / t->size);
 	wattron(help, A_BOLD);
@@ -558,7 +558,7 @@ nc_task_details(const char *base, struct session *s)
 	wprintw(help, " ... %s (%0.2f)\n", buf, progress);
 
 	/* uploaded */
-	snprintf(buf, sizeof(buf), "%d", t->uploaded);
+	snprintf(buf, sizeof(buf), "%ld", t->uploaded);
 	unit(t->uploaded, buf, sizeof(buf));
 	progress = ((double) t->uploaded / t->size);
 	wattron(help, A_BOLD);

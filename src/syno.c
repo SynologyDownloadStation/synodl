@@ -157,14 +157,14 @@ json_load_tasks(json_object *obj, void (*cb)(struct task *))
 						json_object_get_string(tmp));
 
 		json_object_object_get_ex(task, "size", &tmp);
-		dt.size = json_object_get_int(tmp);
+		dt.size = json_object_get_int64(tmp);
 
 		json_object_object_get_ex(task, "additional", &additional);
 		if (json_object_object_get_ex(additional, "transfer", &transfer))
 		{
 			json_object_object_get_ex(transfer,
 						"size_downloaded", &tmp);
-			dt.downloaded = json_object_get_int(tmp);
+			dt.downloaded = json_object_get_int64(tmp);
 
 			json_object_object_get_ex(transfer,
 						"speed_download", &tmp);
@@ -182,7 +182,7 @@ json_load_tasks(json_object *obj, void (*cb)(struct task *))
 		}
 
 		json_object_object_get_ex(transfer, "size_uploaded", &tmp);
-		dt.uploaded = json_object_get_int(tmp);
+		dt.uploaded = json_object_get_int64(tmp);
 
 		cb(&dt);
 	}
